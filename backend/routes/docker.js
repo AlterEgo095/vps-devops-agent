@@ -1,5 +1,6 @@
 import express from 'express';
 import dockerManager from '../services/docker-manager.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -31,8 +32,9 @@ router.use(authenticateToken);
 /**
  * GET /api/docker/containers
  * Liste tous les conteneurs (running + stopped)
+ * Cache: 5s (docker change rapidement mais pas à chaque seconde)
  */
-router.get('/containers', async (req, res) => {
+router.get('/containers', cacheMiddleware(5), async (req, res) => {
   try {
     const all = req.query.all !== 'false'; // Par défaut true
     const containers = await dockerManager.listContainers(all);

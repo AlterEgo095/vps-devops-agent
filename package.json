@@ -14,7 +14,11 @@
     "clean-port": "fuser -k 4000/tcp 2>/dev/null || true",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:performance": "bash test-performance.sh",
+    "db:migrate": "sqlite3 backend/devops-agent.db < migrations/006-performance-indexes.sql",
+    "logs:view": "tail -f logs/combined.log",
+    "logs:errors": "tail -f logs/error.log"
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -32,6 +36,7 @@
     "js-yaml": "^4.1.1",
     "jsdom": "^27.2.0",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
     "openai": "^4.20.0",
@@ -43,6 +48,8 @@
     "tar": "^7.5.2",
     "tar-fs": "^3.1.1",
     "uuid": "^13.0.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1",
     "ws": "^8.18.3"
   },
   "devDependencies": {

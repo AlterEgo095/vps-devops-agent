@@ -2,6 +2,7 @@ import express from 'express';
 import SystemMonitor from '../services/system-monitor.js';
 import AlertManager from '../services/alert-manager.js';
 import { db } from '../services/database-sqlite.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -9,7 +10,8 @@ const router = express.Router();
 const systemMonitor = new SystemMonitor(db);
 
 // GET /api/monitoring/metrics - Get current system metrics
-router.get('/metrics', async (req, res) => {
+// Cache: 10s (métriques temps réel changent rapidement)
+router.get('/metrics', cacheMiddleware(10), async (req, res) => {
   try {
     const metrics = await systemMonitor.collectMetrics();
     
@@ -40,7 +42,8 @@ router.get('/metrics', async (req, res) => {
 });
 
 // GET /api/monitoring/metrics/history - Get historical metrics
-router.get('/metrics/history', async (req, res) => {
+// Cache: 60s (données historiques changent moins souvent)
+router.get('/metrics/history', cacheMiddleware(60), async (req, res) => {
   try {
     const { period = '24h', limit = 100 } = req.query;
     

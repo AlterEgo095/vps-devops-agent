@@ -11,6 +11,8 @@ import compression from 'compression';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import http from 'http';
+import logger from './config/logger.js';
+import { httpLogger, requestLogger } from './middleware/http-logger.js';
 
 // Import routes
 import authRouter from './routes/auth.js';
@@ -89,10 +91,19 @@ app.use(express.json({ limit: '10mb' }));
 app.use(validationFailureLogger);
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
+// 📊 Logging HTTP avec Morgan + Winston
+app.use(httpLogger);
+app.use(requestLogger);
+
+// Logging middleware (remplacé par Winston)
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.path}`);
+  logger.http(`${req.method} ${req.path}`, {
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    timestamp
+  });
   next();
 });
 
@@ -152,7 +163,12 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error('Unhandled error', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
@@ -161,14 +177,20 @@ app.use((err, req, res, next) => {
 
 // Start server with WebSocket support
 server.listen(PORT, '0.0.0.0', () => {
+  logger.info('🚀 VPS DevOps Agent started', {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    workspace: process.env.AGENT_WORKSPACE || '/opt/agent-projects'
+  });
+  
   console.log(`\n🚀 VPS DevOps Agent running!`);
   console.log(`📡 Backend API: http://localhost:${PORT}`);
   console.log(`🌐 Frontend: http://localhost:${PORT}`);
   console.log(`📂 Workspace: ${process.env.AGENT_WORKSPACE || '/opt/agent-projects'}`);
   console.log(`🔒 Auth: ${process.env.REQUIRE_APPROVAL === 'true' ? 'Approval required' : 'Auto-execute'}`);
   console.log(`🔌 WebSocket: ws://localhost:${PORT}/api/terminal/ws`);
-  console.log(`🐳 Docker API: http://localhost:${PORT}/api/docker`); // ✨ NOUVEAU
-  console.log(`📊 Monitoring API: http://localhost:${PORT}/api/monitoring`); // ✨ NOUVEAU
+  console.log(`🐳 Docker API: http://localhost:${PORT}/api/docker`);
+  console.log(`📊 Monitoring API: http://localhost:${PORT}/api/monitoring`);
   console.log(`\n✨ Ready to receive commands!\n`);
   
   // Initialiser WebSocket après le démarrage du serveur
@@ -178,6 +200,7 @@ server.listen(PORT, '0.0.0.0', () => {
   const systemMonitor = new SystemMonitor(null); // Pass null for db as it's optional
   
   // ✨ Initialiser le monitoring automatique
+  logger.info('📊 Starting automatic metrics collection...');
   console.log('📊 Starting automatic metrics collection...');
   
   // Collecter les métriques toutes les 30 secondes
@@ -202,18 +225,23 @@ server.listen(PORT, '0.0.0.0', () => {
         await AlertManager.sendAlert(alert);
       }
     } catch (error) {
-      console.error('❌ Error in metrics collection:', error.message);
+      logger.error('Error in metrics collection', {
+        error: error.message,
+        stack: error.stack
+      });
     }
   });
   
   // Nettoyer les anciennes métriques tous les jours à minuit
   cron.schedule('0 0 * * *', () => {
+    logger.info('🧹 Cleaning old metrics...');
     console.log('🧹 Cleaning old metrics...');
     if (systemMonitor.db) {
       systemMonitor.cleanOldMetrics(30); // Garder 30 jours
     }
   });
   
+  logger.info('✅ Monitoring system initialized');
   console.log('✅ Monitoring system initialized');
 });
 
