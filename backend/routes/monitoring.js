@@ -3,8 +3,12 @@ import SystemMonitor from '../services/system-monitor.js';
 import AlertManager from '../services/alert-manager.js';
 import { db } from '../services/database-sqlite.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// 🔒 PROTECTION: Toutes les routes nécessitent une authentification
+router.use(authenticateToken);
 
 // Créer une instance de SystemMonitor avec la database
 const systemMonitor = new SystemMonitor(db);
