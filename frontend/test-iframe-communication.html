@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Communication Iframe</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #5568d3; }
+        .iframe-container { height: 600px; border: 2px solid #667eea; border-radius: 8px; overflow: hidden; }
+        iframe { width: 100%; height: 100%; border: none; }
+        .log { background: #1a1a1a; color: #00ff00; padding: 15px; font-family: monospace; font-size: 14px; max-height: 300px; overflow-y: auto; border-radius: 5px; }
+        .log-entry { margin: 5px 0; }
+        .success { color: #4ade80; }
+        .error { color: #ef4444; }
+        .info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Communication Iframe - Agent Autonome</h1>
+        
+        <div class="section">
+            <h2>1️⃣ Simuler une Connexion SSH</h2>
+            <p>Cliquez pour dispatcher un événement <code>serverContextChanged</code></p>
+            <button onclick="simulateSSHConnection()">🔌 Simuler Connexion SSH (root@62.84.189.231)</button>
+        </div>
+
+        <div class="section">
+            <h2>2️⃣ Logs en Temps Réel</h2>
+            <div class="log" id="logs"></div>
+        </div>
+
+        <div class="section">
+            <h2>3️⃣ Iframe - Agent Autonome</h2>
+            <div class="iframe-container">
+                <iframe id="autonomousIframe" src="/autonomous-chat.html" 
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                        allow="clipboard-read; clipboard-write">
+                </iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const logsDiv = document.getElementById("logs");
+        
+        function addLog(message, type = "info") {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement("div");
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        // Écouter les événements serverContextChanged
+        window.addEventListener("serverContextChanged", function(event) {
+            addLog("📡 EVENT REÇU: serverContextChanged", "success");
+            addLog(`   Host: ${event.detail.host}`, "info");
+            addLog(`   Username: ${event.detail.username}`, "info");
+            addLog(`   Connected: ${event.detail.connected}`, "info");
+            
+            // Propager vers l iframe
+            const iframe = document.getElementById("autonomousIframe");
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: "serverContextChanged",
+                    detail: event.detail
+                }, "*");
+                addLog("📤 EVENT PROPAGÉ vers iframe via postMessage", "success");
+            }
+        });
+
+        // Simuler une connexion SSH
+        function simulateSSHConnection() {
+            addLog("🚀 SIMULATION: Connexion SSH démarrée...", "info");
+            
+            const serverContext = {
+                id: null,
+                host: "62.84.189.231",
+                port: 22,
+                username: "root",
+                name: "root@62.84.189.231",
+                connected: true
+            };
+
+            // Dispatcher l événement
+            const event = new CustomEvent("serverContextChanged", {
+                detail: serverContext
+            });
+            
+            window.dispatchEvent(event);
+            addLog("✅ Événement serverContextChanged dispatché", "success");
+        }
+
+        // Écouter les messages de l iframe (retour)
+        window.addEventListener("message", function(event) {
+            if (event.data && event.data.type === "iframeReady") {
+                addLog("✅ IFRAME: Prêt à recevoir des événements", "success");
+            }
+        });
+
+        addLog("🎬 Page chargée, prête pour les tests", "info");
+        addLog("👉 Cliquez sur le bouton pour simuler une connexion SSH", "info");
+    </script>
+</body>
+</html>

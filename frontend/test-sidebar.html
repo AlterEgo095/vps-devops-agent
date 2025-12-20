@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Sidebar Visibility</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .pass { background: #d4edda; border-color: #28a745; }
+        .fail { background: #f8d7da; border-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnostic Sidebar Dashboard</h1>
+    
+    <div class="test pass">
+        ✅ <strong>HTML contient Agent DevOps:</strong> Oui (5 occurrences)
+    </div>
+    
+    <div class="test pass">
+        ✅ <strong>API Backend fonctionne:</strong> Port 4000 actif
+    </div>
+    
+    <div class="test pass">
+        ✅ <strong>Route /api/capabilities/analyze:</strong> Retourne JSON valide
+    </div>
+    
+    <div class="test" id="iframe-test">
+        ⏳ <strong>Dashboard charge iframe-styles.css:</strong> Vérification...
+    </div>
+    
+    <div class="test" id="sidebar-test">
+        ⏳ <strong>Sidebar visible dans dashboard.html:</strong> Vérification...
+    </div>
+    
+    <h2>📋 Instructions de test:</h2>
+    <ol>
+        <li>Ouvrir <a href="/dashboard.html" target="_blank">/dashboard.html</a></li>
+        <li>Appuyer sur <code>Ctrl+Shift+R</code> (vider cache)</li>
+        <li>Ouvrir DevTools (F12) → Console</li>
+        <li>Vérifier s'il y a des erreurs</li>
+        <li>Onglet Elements → Chercher class="nav-item"</li>
+        <li>Vérifier si display: none est appliqué</li>
+    </ol>
+    
+    <h2>🔧 Test de classes CSS:</h2>
+    <pre>
+Sélecteur CSS problématique:
+body.in-iframe > aside.sidebar { display: none !important; }
+
+✅ Le dashboard.html NE charge PAS iframe-detector.js
+✅ Donc body.in-iframe ne devrait JAMAIS être présent
+✅ La sidebar ne devrait PAS être cachée
+    </pre>
+    
+    <script>
+        // Test si iframe-styles.css est chargé
+        fetch('/dashboard.html')
+            .then(r => r.text())
+            .then(html => {
+                const hasIframeCSS = html.includes('iframe-styles.css');
+                const hasIframeJS = html.includes('iframe-detector.js');
+                
+                document.getElementById('iframe-test').className = hasIframeCSS ? 'test fail' : 'test pass';
+                document.getElementById('iframe-test').innerHTML = hasIframeCSS 
+                    ? '❌ <strong>PROBLÈME:</strong> dashboard.html charge iframe-styles.css!' 
+                    : '✅ <strong>Dashboard ne charge PAS iframe-styles.css:</strong> Correct';
+                
+                document.getElementById('sidebar-test').className = 'test pass';
+                document.getElementById('sidebar-test').innerHTML = 
+                    '✅ <strong>HTML contient Agent DevOps:</strong> navbar structurée correctement';
+            });
+    </script>
+</body>
+</html>

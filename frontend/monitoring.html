@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script src="/auth-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring & Alertes - VPS DevOps Agent</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .metric-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .status-ok { color: #10b981; }
+        .status-warning { color: #f59e0b; }
+        .status-critical { color: #ef4444; }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .chart-container h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .form-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .alert-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .alert-table th,
+        .alert-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .alert-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .alert-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .alert-badge.warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .alert-badge.critical {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.success { border-left: 4px solid #10b981; }
+        .notification.error { border-left: 4px solid #ef4444; }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .period-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .period-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .period-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body>
+    <script src="/iframe-detector.js"></script>
+    <script src="/monitoring-remote.js"></script>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <i class="fas fa-chart-line"></i>
+                Monitoring & Alertes
+            <div id="server-indicator" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 5px; display: none;">
+                <i class="fas fa-server"></i>
+                <strong>Serveur:</strong> <span id="server-name">Aucun</span>
+                <button onclick="clearServerContext()" style="margin-left: 10px; padding: 5px 10px; background: #ff4444; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    <i class="fas fa-times"></i> Déconnecter
+                </button>
+            </div>
+            </h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="tab" onclick="switchTab('history')">
+                <i class="fas fa-history"></i> Historique
+            </button>
+            <button class="tab" onclick="switchTab('alerts')">
+                <i class="fas fa-bell"></i> Configuration Alertes
+            </button>
+            <button class="tab" onclick="switchTab('alert-history')">
+                <i class="fas fa-exclamation-triangle"></i> Historique Alertes
+            </button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content active">
+            <div class="metrics-grid" id="metrics-grid">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Chargement des métriques...
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Graphiques en Temps Réel</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                    <div>
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="diskChart"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="networkChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history-tab" class="tab-content">
+            <div class="chart-container">
+                <h3>Historique des Métriques</h3>
+                <div class="period-selector">
+                    <button class="period-btn active" onclick="loadHistory('24h')">24 Heures</button>
+                    <button class="period-btn" onclick="loadHistory('7d')">7 Jours</button>
+                    <button class="period-btn" onclick="loadHistory('30d')">30 Jours</button>
+                </div>
+                <canvas id="historyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Alerts Config Tab -->
+        <div id="alerts-tab" class="tab-content">
+            <div class="form-section">
+                <h3>
+                    <i class="fas fa-cog"></i>
+                    Configuration des Alertes
+                </h3>
+                <form id="alert-config-form">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <!-- General Settings -->
+                        <div>
+                            <h4 style="margin-bottom: 15px;">Paramètres Généraux</h4>
+                            <div class="form-group">
+                                <label>Nom du Serveur</label>
+                                <input type="text" name="server_name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Seuil CPU (%)</label>
+                                <input type="number" name="threshold_cpu" min="0" max="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Seuil Mémoire (%)</label>
+                                <input type="number" name="threshold_memory" min="0" max="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Seuil Disque (%)</label>
+                                <input type="number" name="threshold_disk" min="0" max="100" required>
+                            </div>
+                        </div>
+
+                        <!-- Email Settings -->
+                        <div>
+                            <h4 style="margin-bottom: 15px;">
+                                <input type="checkbox" name="email_enabled" id="email_enabled" onchange="toggleEmailFields()">
+                                Alertes Email
+                            </h4>
+                            <div id="email-fields">
+                                <div class="form-group">
+                                    <label>Adresse Email Destinataire</label>
+                                    <input type="email" name="email_to">
+                                </div>
+                                <div class="form-group">
+                                    <label>Serveur SMTP</label>
+                                    <input type="text" name="smtp_host" placeholder="smtp.gmail.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Port SMTP</label>
+                                    <input type="number" name="smtp_port" value="587">
+                                </div>
+                                <div class="form-group">
+                                    <label>Utilisateur SMTP</label>
+                                    <input type="text" name="smtp_user">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mot de Passe SMTP</label>
+                                    <input type="password" name="smtp_pass">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email Expéditeur</label>
+                                    <input type="email" name="smtp_from">
+                                </div>
+                                <button type="button" class="btn btn-secondary" onclick="testEmail()">
+                                    <i class="fas fa-envelope"></i> Tester Email
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Telegram Settings -->
+                        <div>
+                            <h4 style="margin-bottom: 15px;">
+                                <input type="checkbox" name="telegram_enabled" id="telegram_enabled" onchange="toggleTelegramFields()">
+                                Alertes Telegram
+                            </h4>
+                            <div id="telegram-fields">
+                                <div class="form-group">
+                                    <label>Token du Bot</label>
+                                    <input type="text" name="telegram_bot_token">
+                                </div>
+                                <div class="form-group">
+                                    <label>Chat ID</label>
+                                    <input type="text" name="telegram_chat_id">
+                                </div>
+                                <button type="button" class="btn btn-secondary" onclick="testTelegram()">
+                                    <i class="fab fa-telegram"></i> Tester Telegram
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Sauvegarder la Configuration
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="loadAlertConfig()">
+                            <i class="fas fa-undo"></i> Annuler
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Alert History Tab -->
+        <div id="alert-history-tab" class="tab-content">
+            <div class="form-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>
+                        <i class="fas fa-list"></i>
+                        Historique des Alertes
+                    </h3>
+                    <button class="btn btn-secondary" onclick="clearAlertHistory()">
+                        <i class="fas fa-trash"></i> Effacer l'Historique
+                    </button>
+                </div>
+                <table class="alert-table" id="alert-history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Niveau</th>
+                            <th>Message</th>
+                            <th>Valeur</th>
+                            <th>Seuil</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alert-history-body">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <i class="fas fa-spinner fa-spin"></i> Chargement...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // 🔐 Protection: Require authentication
+        AuthGuard.protectPage({
+            requireAuth: true,
+            onSuccess: () => console.log("✅ Page access granted"),
+            onFail: () => console.log("⛔ Access denied - redirecting...")
+        });
+        
+        // Create API interceptor
+        const apiCall = AuthGuard.createApiInterceptor();
+
+        // Charts
+        let cpuChart, memoryChart, diskChart, networkChart, historyChart;
+        let metricsInterval;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            loadMetrics();
+            loadAlertConfig();
+            startAutoRefresh();
+
+            // Form submission
+            document.getElementById('alert-config-form').addEventListener('submit', saveAlertConfig);
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.closest('.tab').classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            if (tabName === 'history') {
+                loadHistory('24h');
+            } else if (tabName === 'alert-history') {
+                loadAlertHistory();
+            }
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            };
+
+            cpuChart = new Chart(document.getElementById('cpuChart'), {
+                ...chartConfig,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU %',
+                        data: [],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4
+                    }]
+                }
+            });
+
+            memoryChart = new Chart(document.getElementById('memoryChart'), {
+                ...chartConfig,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Mémoire %',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                }
+            });
+
+            diskChart = new Chart(document.getElementById('diskChart'), {
+                ...chartConfig,
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Disque %',
+                        data: [],
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4
+                    }]
+                }
+            });
+
+            networkChart = new Chart(document.getElementById('networkChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'RX (MB/s)',
+                            data: [],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'TX (MB/s)',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true, position: 'top' }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load current metrics
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/monitoring/metrics');
+                const result = await response.json();
+
+                if (result.success) {
+                    displayMetrics(result.data.metrics, result.data.alerts);
+                    updateCharts(result.data.metrics);
+                }
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+                showNotification('Erreur de chargement des métriques', 'error');
+            }
+        }
+
+        // Display metrics cards
+        function displayMetrics(metrics, alerts) {
+            const grid = document.getElementById('metrics-grid');
+            
+            const getStatus = (value, thresholds) => {
+                if (value >= thresholds.critical) return 'status-critical';
+                if (value >= thresholds.warning) return 'status-warning';
+                return 'status-ok';
+            };
+
+            grid.innerHTML = `
+                <div class="metric-card">
+                    <h3><i class="fas fa-microchip"></i> CPU</h3>
+                    <div class="metric-value ${getStatus(metrics.cpu.usage, {warning: 70, critical: 80})}">
+                        ${metrics.cpu.usage.toFixed(1)}%
+                    </div>
+                    <div class="metric-label">${metrics.cpu.cores} Cœurs | Load: ${metrics.loadAverage[0].toFixed(2)}</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3><i class="fas fa-memory"></i> Mémoire</h3>
+                    <div class="metric-value ${getStatus(metrics.memory.percent, {warning: 75, critical: 85})}">
+                        ${metrics.memory.percent.toFixed(1)}%
+                    </div>
+                    <div class="metric-label">${formatBytes(metrics.memory.used)} / ${formatBytes(metrics.memory.total)}</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3><i class="fas fa-hdd"></i> Disque</h3>
+                    <div class="metric-value ${getStatus(metrics.disk.percent, {warning: 80, critical: 90})}">
+                        ${metrics.disk.percent.toFixed(1)}%
+                    </div>
+                    <div class="metric-label">${formatBytes(metrics.disk.used)} / ${formatBytes(metrics.disk.total)}</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3><i class="fas fa-network-wired"></i> Réseau</h3>
+                    <div class="metric-value status-ok">
+                        ↓ ${formatBytes(metrics.network.rxSec)}/s
+                    </div>
+                    <div class="metric-label">↑ ${formatBytes(metrics.network.txSec)}/s</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3><i class="fab fa-docker"></i> Docker</h3>
+                    <div class="metric-value status-ok">
+                        ${metrics.docker.running} / ${metrics.docker.containers}
+                    </div>
+                    <div class="metric-label">${metrics.docker.images} Images</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3><i class="fas fa-clock"></i> Uptime</h3>
+                    <div class="metric-value status-ok" style="font-size: 20px;">
+                        ${formatUptime(metrics.uptime)}
+                    </div>
+                    <div class="metric-label">Temps de fonctionnement</div>
+                </div>
+            `;
+
+            if (alerts) {
+                grid.innerHTML += `
+                    <div class="metric-card" style="grid-column: span 2; border-left: 4px solid #ef4444;">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Alertes Actives</h3>
+                        ${alerts.map(a => `<div style="margin-top: 10px;"><strong>${a.type}</strong>: ${a.message}</div>`).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // Update real-time charts
+        function updateCharts(metrics) {
+            const now = new Date().toLocaleTimeString();
+            
+            // Keep only last 20 data points
+            const maxPoints = 20;
+
+            // CPU Chart
+            cpuChart.data.labels.push(now);
+            cpuChart.data.datasets[0].data.push(metrics.cpu.usage);
+            if (cpuChart.data.labels.length > maxPoints) {
+                cpuChart.data.labels.shift();
+                cpuChart.data.datasets[0].data.shift();
+            }
+            cpuChart.update('none');
+
+            // Memory Chart
+            memoryChart.data.labels.push(now);
+            memoryChart.data.datasets[0].data.push(metrics.memory.percent);
+            if (memoryChart.data.labels.length > maxPoints) {
+                memoryChart.data.labels.shift();
+                memoryChart.data.datasets[0].data.shift();
+            }
+            memoryChart.update('none');
+
+            // Disk Chart
+            diskChart.data.labels.push(now);
+            diskChart.data.datasets[0].data.push(metrics.disk.percent);
+            if (diskChart.data.labels.length > maxPoints) {
+                diskChart.data.labels.shift();
+                diskChart.data.datasets[0].data.shift();
+            }
+            diskChart.update('none');
+
+            // Network Chart
+            networkChart.data.labels.push(now);
+            networkChart.data.datasets[0].data.push((metrics.network.rxSec / 1048576).toFixed(2)); // MB/s
+            networkChart.data.datasets[1].data.push((metrics.network.txSec / 1048576).toFixed(2)); // MB/s
+            if (networkChart.data.labels.length > maxPoints) {
+                networkChart.data.labels.shift();
+                networkChart.data.datasets[0].data.shift();
+                networkChart.data.datasets[1].data.shift();
+            }
+            networkChart.update('none');
+        }
+
+        // Load historical data
+        async function loadHistory(period) {
+            try {
+                document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+                event.target.classList.add('active');
+
+                const response = await fetch(`/api/monitoring/metrics/history?period=${period}&limit=200`);
+                const result = await response.json();
+
+                if (result.success && result.data.metrics.length > 0) {
+                    displayHistory(result.data.metrics);
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                showNotification('Erreur de chargement de l\'historique', 'error');
+            }
+        }
+
+        // Display history chart
+        function displayHistory(data) {
+            const labels = data.map(d => new Date(d.timestamp).toLocaleString()).reverse();
+            
+            if (historyChart) {
+                historyChart.destroy();
+            }
+
+            historyChart = new Chart(document.getElementById('historyChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'CPU %',
+                            data: data.map(d => d.cpu_usage).reverse(),
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Mémoire %',
+                            data: data.map(d => d.memory_percent).reverse(),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Disque %',
+                            data: data.map(d => d.disk_percent).reverse(),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load alert configuration
+        async function loadAlertConfig() {
+            try {
+                const response = await fetch('/api/monitoring/alerts/config');
+                const result = await response.json();
+
+                if (result.success) {
+                    const form = document.getElementById('alert-config-form');
+                    const config = result.data;
+
+                    form.server_name.value = config.server_name || '';
+                    form.threshold_cpu.value = config.threshold_cpu || 80;
+                    form.threshold_memory.value = config.threshold_memory || 85;
+                    form.threshold_disk.value = config.threshold_disk || 90;
+
+                    form.email_enabled.checked = config.email_enabled === 1;
+                    form.email_to.value = config.email_to || '';
+                    form.smtp_host.value = config.smtp_host || '';
+                    form.smtp_port.value = config.smtp_port || 587;
+                    form.smtp_user.value = config.smtp_user || '';
+                    form.smtp_from.value = config.smtp_from || '';
+
+                    form.telegram_enabled.checked = config.telegram_enabled === 1;
+                    form.telegram_bot_token.value = config.telegram_bot_token ? config.telegram_bot_token.substring(0, 20) + '...' : '';
+                    form.telegram_chat_id.value = config.telegram_chat_id || '';
+
+                    toggleEmailFields();
+                    toggleTelegramFields();
+                }
+            } catch (error) {
+                console.error('Error loading alert config:', error);
+            }
+        }
+
+        // Save alert configuration
+        async function saveAlertConfig(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            const config = {
+                server_name: formData.get('server_name'),
+                threshold_cpu: parseFloat(formData.get('threshold_cpu')),
+                threshold_memory: parseFloat(formData.get('threshold_memory')),
+                threshold_disk: parseFloat(formData.get('threshold_disk')),
+                email_enabled: form.email_enabled.checked ? 1 : 0,
+                email_to: formData.get('email_to'),
+                smtp_host: formData.get('smtp_host'),
+                smtp_port: parseInt(formData.get('smtp_port')),
+                smtp_user: formData.get('smtp_user'),
+                smtp_pass: formData.get('smtp_pass'),
+                smtp_from: formData.get('smtp_from'),
+                telegram_enabled: form.telegram_enabled.checked ? 1 : 0,
+                telegram_bot_token: formData.get('telegram_bot_token'),
+                telegram_chat_id: formData.get('telegram_chat_id')
+            };
+
+            try {
+                const response = await fetch('/api/monitoring/alerts/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Configuration sauvegardée avec succès', 'success');
+                } else {
+                    showNotification(result.error || 'Erreur lors de la sauvegarde', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving config:', error);
+                showNotification('Erreur de connexion', 'error');
+            }
+        }
+
+        // Test email configuration
+        async function testEmail() {
+            const form = document.getElementById('alert-config-form');
+            const config = {
+                email_to: form.email_to.value,
+                smtp_host: form.smtp_host.value,
+                smtp_port: parseInt(form.smtp_port.value),
+                smtp_user: form.smtp_user.value,
+                smtp_pass: form.smtp_pass.value,
+                smtp_from: form.smtp_from.value
+            };
+
+            try {
+                const response = await fetch('/api/monitoring/alerts/test/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Email de test envoyé avec succès', 'success');
+                } else {
+                    showNotification('Échec: ' + (result.message || result.error), 'error');
+                }
+            } catch (error) {
+                console.error('Error testing email:', error);
+                showNotification('Erreur de test email', 'error');
+            }
+        }
+
+        // Test Telegram configuration
+        async function testTelegram() {
+            const form = document.getElementById('alert-config-form');
+            const config = {
+                telegram_bot_token: form.telegram_bot_token.value,
+                telegram_chat_id: form.telegram_chat_id.value
+            };
+
+            try {
+                const response = await fetch('/api/monitoring/alerts/test/telegram', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Message Telegram envoyé avec succès', 'success');
+                } else {
+                    showNotification('Échec: ' + (result.message || result.error), 'error');
+                }
+            } catch (error) {
+                console.error('Error testing Telegram:', error);
+                showNotification('Erreur de test Telegram', 'error');
+            }
+        }
+
+        // Load alert history
+        async function loadAlertHistory() {
+            try {
+                const response = await fetch('/api/monitoring/alerts/history?limit=100');
+                const result = await response.json();
+
+                if (result.success) {
+                    displayAlertHistory(result.data.alerts);
+                }
+            } catch (error) {
+                console.error('Error loading alert history:', error);
+                showNotification('Erreur de chargement', 'error');
+            }
+        }
+
+        // Display alert history
+        function displayAlertHistory(alerts) {
+            const tbody = document.getElementById('alert-history-body');
+
+            if (alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">Aucune alerte enregistrée</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = alerts.map(alert => `
+                <tr>
+                    <td>${new Date(alert.created_at).toLocaleString()}</td>
+                    <td><i class="fas fa-${getAlertIcon(alert.type)}"></i> ${alert.type}</td>
+                    <td><span class="alert-badge ${alert.level}">${alert.level}</span></td>
+                    <td>${alert.message}</td>
+                    <td>${alert.value ? alert.value.toFixed(1) + '%' : '-'}</td>
+                    <td>${alert.threshold ? alert.threshold.toFixed(0) + '%' : '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Clear alert history
+        async function clearAlertHistory() {
+            if (!confirm('Êtes-vous sûr de vouloir effacer tout l\'historique des alertes ?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/monitoring/alerts/history', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Historique effacé', 'success');
+                    loadAlertHistory();
+                } else {
+                    showNotification('Erreur lors de la suppression', 'error');
+                }
+            } catch (error) {
+                console.error('Error clearing history:', error);
+                showNotification('Erreur de connexion', 'error');
+            }
+        }
+
+        // Toggle form fields
+        function toggleEmailFields() {
+            const enabled = document.getElementById('email_enabled').checked;
+            const fields = document.getElementById('email-fields');
+            fields.style.opacity = enabled ? '1' : '0.5';
+            fields.querySelectorAll('input, button').forEach(el => el.disabled = !enabled);
+        }
+
+        function toggleTelegramFields() {
+            const enabled = document.getElementById('telegram_enabled').checked;
+            const fields = document.getElementById('telegram-fields');
+            fields.style.opacity = enabled ? '1' : '0.5';
+            fields.querySelectorAll('input, button').forEach(el => el.disabled = !enabled);
+        }
+
+        // Start auto-refresh
+        function startAutoRefresh() {
+            metricsInterval = setInterval(loadMetrics, 5000); // Refresh every 5 seconds
+        }
+
+        // Utility functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) return `${days}j ${hours}h`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m`;
+        }
+
+        function getAlertIcon(type) {
+            const icons = {
+                'CPU': 'microchip',
+                'Memory': 'memory',
+                'Disk': 'hdd',
+                'Network': 'network-wired'
+            };
+            return icons[type] || 'exclamation-triangle';
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

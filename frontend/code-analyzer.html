@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script src="/auth-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Analyzer - VPS DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary-color: #667eea;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --dark-bg: #0f172a;
+            --dark-card: #1e293b;
+            --dark-border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #334155;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .quick-scan-btns {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .tech-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .framework-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .confidence-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: var(--primary-gradient);
+            transition: width 0.3s;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body>
+    <script src="/iframe-detector.js"></script>
+    <div class="container" style="max-width: 1400px; margin: 0 auto;">
+        <!-- Header -->
+        <div class="card">
+            <div class="card-header" style="border: none; padding-bottom: 0;">
+                <div class="card-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div>
+                    <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem;">Code Analyzer</h1>
+                    <p style="color: #64748b;">Analyse approfondie de votre codebase</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scanner Form -->
+        <div class="card">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
+                <i class="fas fa-folder-open" style="color: #667eea;"></i> Scanner un Projet
+            </h3>
+            
+            <div class="input-group">
+                <label for="directory-input">
+                    <i class="fas fa-folder"></i> Chemin du Répertoire
+                </label>
+                <input 
+                    type="text" 
+                    id="directory-input" 
+                    placeholder="/opt/vps-devops-agent"
+                    value="/opt/vps-devops-agent"
+                />
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label>
+                        <input type="checkbox" id="include-hidden" /> Inclure fichiers cachés
+                    </label>
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label for="max-depth">Profondeur Max</label>
+                    <select id="max-depth">
+                        <option value="3">3 niveaux</option>
+                        <option value="5" selected>5 niveaux</option>
+                        <option value="10">10 niveaux</option>
+                        <option value="-1">Illimité</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="analyzeProject()" id="analyze-btn">
+                <i class="fas fa-search"></i> Analyser
+            </button>
+
+            <div class="quick-scan-btns">
+                <button class="btn btn-secondary" onclick="quickScan('/opt/vps-devops-agent')">
+                    <i class="fas fa-server"></i> VPS DevOps Agent
+                </button>
+                <button class="btn btn-secondary" onclick="quickScan('/opt/aestreaming')">
+                    <i class="fas fa-video"></i> AEStreaming
+                </button>
+                <button class="btn btn-secondary" onclick="quickScan('/opt/vps-devops-agent/backend')">
+                    <i class="fas fa-code"></i> Backend
+                </button>
+                <button class="btn btn-secondary" onclick="quickScan('/opt/vps-devops-agent/frontend')">
+                    <i class="fas fa-palette"></i> Frontend
+                </button>
+            </div>
+
+            <div id="error-message" class="error-box hidden"></div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="card hidden">
+            <div class="loader"></div>
+            <p style="text-align: center; color: #64748b; margin-top: 1rem;">Analyse en cours...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+            <!-- Stats -->
+            <div class="card">
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">
+                    <i class="fas fa-chart-bar" style="color: #667eea;"></i> Statistiques
+                </h3>
+                <div class="stats-grid" id="stats-grid"></div>
+            </div>
+
+            <!-- Tech Stack -->
+            <div class="card">
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">
+                    <i class="fas fa-layer-group" style="color: #667eea;"></i> Stack Technologique
+                </h3>
+                <div id="tech-stack"></div>
+            </div>
+
+            <!-- Frameworks -->
+            <div class="card" id="frameworks-card" class="hidden">
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">
+                    <i class="fas fa-cubes" style="color: #667eea;"></i> Frameworks Détectés
+                </h3>
+                <div id="frameworks-list"></div>
+            </div>
+
+            <!-- Dependencies -->
+            <div class="card" id="dependencies-card" class="hidden">
+                <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">
+                    <i class="fas fa-boxes" style="color: #667eea;"></i> Dépendances
+                </h3>
+                <div id="dependencies-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🔐 Protection: Require authentication
+        AuthGuard.protectPage({
+            requireAuth: true,
+            onSuccess: () => console.log("✅ Page access granted"),
+            onFail: () => console.log("⛔ Access denied - redirecting...")
+        });
+        
+        // Create API interceptor
+        const apiCall = AuthGuard.createApiInterceptor();
+
+        const API_BASE = window.location.origin + '/api';
+
+        async function analyzeProject() {
+            const directory = document.getElementById('directory-input').value;
+            const includeHidden = document.getElementById('include-hidden').checked;
+            const maxDepth = parseInt(document.getElementById('max-depth').value);
+
+            if (!directory) {
+                showError('Veuillez entrer un chemin de répertoire');
+                return;
+            }
+
+            // Hide error
+            document.getElementById('error-message').classList.add('hidden');
+
+            // Show loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('analyze-btn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/capabilities/analyze`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        directory,
+                        options: {
+                            includeHidden,
+                            maxDepth: maxDepth === -1 ? undefined : maxDepth,
+                            includeStats: true,
+                            detectFrameworks: true
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.analysis) {
+                    displayResults(data.analysis);
+                } else {
+                    showError(data.error || 'Erreur lors de l\'analyse');
+                }
+            } catch (error) {
+                showError('Erreur de connexion: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('analyze-btn').disabled = false;
+            }
+        }
+
+        function quickScan(directory) {
+            document.getElementById('directory-input').value = directory;
+            analyzeProject();
+        }
+
+        function displayResults(analysis) {
+            // Show results
+            document.getElementById('results').classList.remove('hidden');
+
+            // Display Stats
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="stat-value">${analysis.statistics.totalFiles}</div>
+                    <div class="stat-label"><i class="fas fa-file"></i> Fichiers</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <div class="stat-value">${formatNumber(analysis.statistics.totalLines)}</div>
+                    <div class="stat-label"><i class="fas fa-code"></i> Lignes de Code</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <div class="stat-value">${analysis.languages.length}</div>
+                    <div class="stat-label"><i class="fas fa-language"></i> Langages</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                    <div class="stat-value">${Object.keys(analysis.statistics.filesByType).length}</div>
+                    <div class="stat-label"><i class="fas fa-file-alt"></i> Types de Fichiers</div>
+                </div>
+            `;
+            document.getElementById('stats-grid').innerHTML = statsHtml;
+
+            // Display Tech Stack
+            const techStackHtml = `
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #667eea;">Type de Projet:</strong>
+                    <span class="tech-badge" style="background: var(--primary-gradient); color: white;">
+                        <i class="fas fa-folder-open"></i> ${analysis.projectType}
+                    </span>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #667eea;">Langages:</strong><br>
+                    ${analysis.languages.map(lang => `
+                        <span class="tech-badge">
+                            ${getLanguageIcon(lang)} ${lang}
+                        </span>
+                    `).join('')}
+                </div>
+                <div>
+                    <strong style="color: #667eea;">Technologies:</strong><br>
+                    ${analysis.technologies.map(tech => `
+                        <span class="tech-badge">${tech}</span>
+                    `).join('')}
+                </div>
+            `;
+            document.getElementById('tech-stack').innerHTML = techStackHtml;
+
+            // Display Frameworks
+            if (analysis.frameworks && analysis.frameworks.length > 0) {
+                document.getElementById('frameworks-card').classList.remove('hidden');
+                const frameworksHtml = analysis.frameworks.map(fw => `
+                    <div class="framework-item">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                                <i class="fas fa-cube" style="color: #667eea;"></i> ${fw.name}
+                            </div>
+                            ${fw.version ? `<div style="font-size: 0.875rem; color: #64748b;">Version: ${fw.version}</div>` : ''}
+                            <div class="confidence-bar" style="width: 200px;">
+                                <div class="confidence-fill" style="width: ${fw.confidence * 100}%"></div>
+                            </div>
+                        </div>
+                        <div style="font-weight: 600; color: #667eea;">
+                            ${Math.round(fw.confidence * 100)}%
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('frameworks-list').innerHTML = frameworksHtml;
+            }
+
+            // Display Dependencies
+            if (analysis.dependencies && Object.keys(analysis.dependencies).length > 0) {
+                document.getElementById('dependencies-card').classList.remove('hidden');
+                const deps = analysis.dependencies;
+                let depsHtml = '';
+
+                if (deps.dependencies && Object.keys(deps.dependencies).length > 0) {
+                    depsHtml += `
+                        <h4 style="font-weight: 600; margin-bottom: 0.75rem;">
+                            <i class="fas fa-box" style="color: #10b981;"></i> Production (${Object.keys(deps.dependencies).length})
+                        </h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
+                            ${Object.entries(deps.dependencies).slice(0, 20).map(([name, version]) => `
+                                <span class="tech-badge">
+                                    <i class="fab fa-npm"></i> ${name} <span style="color: #64748b;">${version}</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                if (deps.devDependencies && Object.keys(deps.devDependencies).length > 0) {
+                    depsHtml += `
+                        <h4 style="font-weight: 600; margin-bottom: 0.75rem;">
+                            <i class="fas fa-box" style="color: #f59e0b;"></i> Développement (${Object.keys(deps.devDependencies).length})
+                        </h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${Object.entries(deps.devDependencies).slice(0, 20).map(([name, version]) => `
+                                <span class="tech-badge">
+                                    <i class="fab fa-npm"></i> ${name} <span style="color: #64748b;">${version}</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                document.getElementById('dependencies-content').innerHTML = depsHtml;
+            }
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        }
+
+        function getLanguageIcon(lang) {
+            const icons = {
+                'JavaScript': '🟨',
+                'TypeScript': '🔷',
+                'Python': '🐍',
+                'PHP': '🐘',
+                'Ruby': '💎',
+                'Go': '🔵',
+                'Rust': '🦀',
+                'Java': '☕',
+                'C++': '⚙️',
+                'C': '©️'
+            };
+            return icons[lang] || '📄';
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('fr-FR').format(num);
+        }
+
+        // Auto-focus on input
+        document.getElementById('directory-input').focus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script src="/auth-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Enhancements - DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card .icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card .icon.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-card .icon.green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .stat-card .icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .stat-card .icon.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-card .label {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .endpoints-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .endpoint-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .endpoint-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .endpoint-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .endpoint-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .endpoint-count {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .endpoint-list {
+            list-style: none;
+        }
+
+        .endpoint-item {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .endpoint-item:hover {
+            background: #f8fafc;
+            border-color: #667eea;
+        }
+
+        .endpoint-method {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .method-get { background: #dbeafe; color: #1e40af; }
+        .method-post { background: #dcfce7; color: #15803d; }
+        .method-put { background: #fef3c7; color: #92400e; }
+        .method-delete { background: #fee2e2; color: #991b1b; }
+
+        .endpoint-path {
+            font-family: 'Courier New', monospace;
+            color: #0f172a;
+            font-size: 0.9rem;
+        }
+
+        .endpoint-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 0.5rem;
+        }
+
+        .status-active { background: #10b981; }
+        .status-pending { background: #f59e0b; }
+
+        .test-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1.5rem;
+        }
+
+        .test-form {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            font-family: 'Courier New', monospace;
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .response-box {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f4f6;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .endpoints-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body>
+    <script src="/iframe-detector.js"></script>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1><i class="fas fa-rocket"></i> API Enhancements</h1>
+            <p>13 Endpoints professionnels exposant toutes les nouvelles capacités du DevOps Agent</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon blue">
+                    <i class="fas fa-plug"></i>
+                </div>
+                <div class="value" id="stat-total">13</div>
+                <div class="label">Endpoints Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon green">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="value" id="stat-active">11</div>
+                <div class="label">Actifs</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon orange">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="value" id="stat-pending">2</div>
+                <div class="label">En Attente Config</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon red">
+                    <i class="fas fa-code"></i>
+                </div>
+                <div class="value">REST</div>
+                <div class="label">Architecture</div>
+            </div>
+        </div>
+
+        <!-- Endpoints Grid -->
+        <div class="endpoints-grid">
+            <!-- Info -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    <div>
+                        <div class="endpoint-title">Info</div>
+                        <div class="endpoint-count">1 endpoint</div>
+                    </div>
+                </div>
+                <ul class="endpoint-list">
+                    <li class="endpoint-item" onclick="selectEndpoint('GET', '/api/enhancements/info')">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span class="endpoint-path">/info</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Sandbox -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        <i class="fab fa-docker"></i>
+                    </div>
+                    <div>
+                        <div class="endpoint-title">Sandbox</div>
+                        <div class="endpoint-count">3 endpoints</div>
+                    </div>
+                </div>
+                <ul class="endpoint-list">
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/sandbox/execute', {command: 'echo Hello && node --version'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/sandbox/execute</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/sandbox/execute-with-mount', {command: 'ls -la', localPath: '/opt/vps-devops-agent'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/sandbox/execute-with-mount</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/sandbox/ensure-image', {image: 'node:20-alpine'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/sandbox/ensure-image</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Git -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <i class="fab fa-git-alt"></i>
+                    </div>
+                    <div>
+                        <div class="endpoint-title">Git</div>
+                        <div class="endpoint-count">6 endpoints</div>
+                    </div>
+                </div>
+                <ul class="endpoint-list">
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/git/init', {repoPath: '/opt/test-repo'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/git/init</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/git/clone', {repoUrl: 'https://github.com/user/repo.git', targetPath: '/opt/cloned-repo'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/git/clone</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/git/commit', {repoPath: '/opt/test-repo', message: 'Test commit', options: {addAll: true}})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/git/commit</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/git/push', {repoPath: '/opt/test-repo', remote: 'origin', branch: 'main'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/git/push</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('GET', '/api/enhancements/git/status?repoPath=/opt/test-repo')">
+                        <span class="endpoint-method method-get">GET</span>
+                        <span class="endpoint-path">/git/status</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/git/commit-and-push', {repoPath: '/opt/test-repo', message: 'Auto commit', remote: 'origin', branch: 'main'})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/git/commit-and-push</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Web -->
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <div class="endpoint-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div>
+                        <div class="endpoint-title">Web</div>
+                        <div class="endpoint-count">3 endpoints</div>
+                    </div>
+                </div>
+                <ul class="endpoint-list">
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/web/search', {query: 'Docker best practices 2024', options: {maxResults: 5}})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/web/search</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/web/fetch-page', {url: 'https://example.com', options: {extractText: true}})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/web/fetch-page</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                    <li class="endpoint-item" onclick="selectEndpoint('POST', '/api/enhancements/web/search-news', {query: 'AI DevOps tools', options: {language: 'en'}})">
+                        <span class="endpoint-method method-post">POST</span>
+                        <span class="endpoint-path">/web/search-news</span>
+                        <span class="endpoint-status status-active"></span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Test Section -->
+        <div class="test-section">
+            <div class="test-header">
+                <i class="fas fa-flask"></i> Tester les Endpoints
+            </div>
+            
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="endpoint-select">Endpoint</label>
+                    <select id="endpoint-select" onchange="updatePayload()">
+                        <option value="">Sélectionnez un endpoint...</option>
+                        <option value="GET:/api/enhancements/info">GET /api/enhancements/info</option>
+                        <option value="POST:/api/enhancements/sandbox/execute">POST /api/enhancements/sandbox/execute</option>
+                        <option value="POST:/api/enhancements/web/search">POST /api/enhancements/web/search</option>
+                        <option value="POST:/api/enhancements/web/fetch-page">POST /api/enhancements/web/fetch-page</option>
+                        <option value="POST:/api/enhancements/git/init">POST /api/enhancements/git/init</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="payload-group">
+                    <label for="payload-input">Payload (JSON)</label>
+                    <textarea id="payload-input" placeholder='{"command": "echo Hello World"}'></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="testEndpoint()">
+                        <i class="fas fa-play"></i> Exécuter
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearResponse()">
+                        <i class="fas fa-eraser"></i> Effacer
+                    </button>
+                </div>
+
+                <div class="form-group" id="response-group" style="display: none;">
+                    <label>Réponse</label>
+                    <div class="response-box" id="response-output"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🔐 Protection: Require authentication
+        AuthGuard.protectPage({
+            requireAuth: true,
+            onSuccess: () => console.log("✅ Page access granted"),
+            onFail: () => console.log("⛔ Access denied - redirecting...")
+        });
+        
+        // Create API interceptor
+        const apiCall = AuthGuard.createApiInterceptor();
+
+        const API_BASE = window.location.origin;
+
+        function selectEndpoint(method, path, payload = null) {
+            const select = document.getElementById('endpoint-select');
+            select.value = `${method}:${path}`;
+            
+            const payloadInput = document.getElementById('payload-input');
+            if (payload) {
+                payloadInput.value = JSON.stringify(payload, null, 2);
+            } else {
+                payloadInput.value = method === 'GET' ? '' : '{}';
+            }
+
+            updatePayload();
+        }
+
+        function updatePayload() {
+            const select = document.getElementById('endpoint-select');
+            const payloadGroup = document.getElementById('payload-group');
+            const method = select.value.split(':')[0];
+            
+            if (method === 'GET') {
+                payloadGroup.style.display = 'none';
+            } else {
+                payloadGroup.style.display = 'block';
+            }
+        }
+
+        async function testEndpoint() {
+            const select = document.getElementById('endpoint-select');
+            const payloadInput = document.getElementById('payload-input');
+            const responseOutput = document.getElementById('response-output');
+            const responseGroup = document.getElementById('response-group');
+
+            if (!select.value) {
+                alert('Veuillez sélectionner un endpoint');
+                return;
+            }
+
+            const [method, path] = select.value.split(':');
+            let payload = null;
+
+            if (method !== 'GET') {
+                try {
+                    payload = JSON.parse(payloadInput.value || '{}');
+                } catch (error) {
+                    alert('JSON invalide: ' + error.message);
+                    return;
+                }
+            }
+
+            responseGroup.style.display = 'block';
+            responseOutput.innerHTML = '<div class="loading"></div> En cours d\'exécution...';
+
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+
+                if (payload) {
+                    options.body = JSON.stringify(payload);
+                }
+
+                const response = await fetch(API_BASE + path, options);
+                const data = await response.json();
+
+                responseOutput.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseOutput.textContent = `ERROR: ${error.message}`;
+            }
+        }
+
+        function clearResponse() {
+            const responseGroup = document.getElementById('response-group');
+            const responseOutput = document.getElementById('response-output');
+            
+            responseGroup.style.display = 'none';
+            responseOutput.textContent = '';
+        }
+
+        // Load stats on page load
+        async function loadStats() {
+            try {
+                const response = await fetch(API_BASE + '/api/enhancements/info');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('stat-total').textContent = data.totalEndpoints || 13;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+        });
+    </script>
+</body>
+</html>

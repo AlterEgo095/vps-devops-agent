@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent DevOps Autonome - Phase 3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .risk-badge-SAFE { @apply bg-green-100 text-green-800 border-green-300; }
+        .risk-badge-MODERATE { @apply bg-yellow-100 text-yellow-800 border-yellow-300; }
+        .risk-badge-CRITICAL { @apply bg-red-100 text-red-800 border-red-300; }
+        
+        .severity-info { @apply bg-blue-50 border-l-4 border-blue-400; }
+        .severity-warning { @apply bg-yellow-50 border-l-4 border-yellow-400; }
+        .severity-critical { @apply bg-red-50 border-l-4 border-red-400; }
+        
+        .health-score-excellent { @apply text-green-600; }
+        .health-score-good { @apply text-blue-600; }
+        .health-score-fair { @apply text-yellow-600; }
+        .health-score-poor { @apply text-red-600; }
+        
+        .command-output {
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .tab-active {
+            @apply border-b-2 border-blue-600 text-blue-600;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Templates styles */
+        .template-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .template-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .category-tab {
+            transition: all 0.2s ease;
+        }
+        .category-tab-active {
+            @apply bg-blue-600 text-white;
+        }
+        .favorite-star {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .favorite-star:hover {
+            transform: scale(1.2);
+        }
+        .favorite-star.active {
+            color: #fbbf24;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <script src="/iframe-detector.js"></script>
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-robot text-4xl text-blue-600"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Agent DevOps Autonome</h1>
+                        <p class="text-sm text-gray-500">Intelligence artificielle pour la gestion d'infrastructure</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-700" id="username">Admin</p>
+                        <p class="text-xs text-gray-500">Phase 3</p>
+                    </div>
+                    <button onclick="logout()" class="px-4 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Server Selection -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-server mr-2 text-blue-600"></i>Serveur cible
+                    </label>
+                    <select id="serverSelect" class="w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Chargement...</option>
+                    </select>
+                        <button onclick="refreshServers()" class="ml-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition" title="Rafraîchir la liste des serveurs">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Niveau d'autonomie</p>
+                    <p class="text-lg font-semibold text-green-600">
+                        <i class="fas fa-check-circle mr-1"></i>Smart Mode
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="bg-white rounded-t-lg shadow-sm border border-gray-200 border-b-0">
+            <nav class="flex space-x-8 px-6" id="tabs">
+                <button onclick="switchTab('analyze')" class="tab-button py-4 text-sm font-medium border-b-2 border-transparent hover:text-blue-600 hover:border-blue-300 tab-active" data-tab="analyze">
+                    <i class="fas fa-chart-line mr-2"></i>Analyse Infrastructure
+                </button>
+                <button onclick="switchTab('request')" class="tab-button py-4 text-sm font-medium border-b-2 border-transparent hover:text-blue-600 hover:border-blue-300" data-tab="request">
+                    <i class="fas fa-lightbulb mr-2"></i>Demande Intelligente
+                </button>
+                <button onclick="switchTab('command')" class="tab-button py-4 text-sm font-medium border-b-2 border-transparent hover:text-blue-600 hover:border-blue-300" data-tab="command">
+                    <i class="fas fa-terminal mr-2"></i>Exécution Commande
+                </button>
+                <button onclick="switchTab('classify')" class="tab-button py-4 text-sm font-medium border-b-2 border-transparent hover:text-blue-600 hover:border-blue-300" data-tab="classify">
+                    <i class="fas fa-shield-alt mr-2"></i>Classification Risque
+                </button>
+                <button onclick="switchTab('templates')" class="tab-button py-4 text-sm font-medium border-b-2 border-transparent hover:text-blue-600 hover:border-blue-300" data-tab="templates">
+                    <i class="fas fa-bookmark mr-2"></i>Templates de Commandes
+                </button>
+            </nav>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="bg-white rounded-b-lg shadow-sm border border-gray-200 p-6">
+            <!-- Tab 1: Analyze Infrastructure -->
+            <div id="tab-analyze" class="tab-content">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-chart-line mr-2 text-blue-600"></i>Analyse d'Infrastructure
+                    </h2>
+                    <p class="text-gray-600">Audit complet du serveur avec analyse GPT-4 et score de santé</p>
+                </div>
+
+                <button onclick="analyzeInfrastructure()" class="mb-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                    <i class="fas fa-play mr-2"></i>Lancer l'analyse
+                </button>
+
+                <div id="analyzeLoading" class="hidden mb-6 flex items-center space-x-3 text-blue-600">
+                    <div class="loading-spinner"></div>
+                    <span>Analyse en cours... (9 vérifications système)</span>
+                </div>
+
+                <div id="analyzeResults" class="hidden fade-in">
+                    <!-- Health Score -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 mb-1">Score de Santé Global</p>
+                                <h3 class="text-4xl font-bold" id="healthScore">--</h3>
+                            </div>
+                            <div class="text-6xl" id="healthIcon">
+                                <i class="fas fa-heartbeat"></i>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-700" id="healthSummary"></p>
+                    </div>
+
+                    <!-- Findings -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-list-ul mr-2"></i>Constats détaillés
+                        </h3>
+                        <div id="findingsList" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Recommendations -->
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-tasks mr-2"></i>Recommandations
+                        </h3>
+                        <div id="recommendationsList" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Analyze Request -->
+            <div id="tab-request" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>Demande Intelligente
+                    </h2>
+                    <p class="text-gray-600">Décrivez votre besoin en langage naturel, l'IA génère un plan d'action</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Votre demande</label>
+                    <textarea id="requestInput" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Exemple: Vérifie l'espace disque et supprime les anciens logs si nécessaire"></textarea>
+                </div>
+
+                <button onclick="analyzeRequest()" class="mb-6 px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium">
+                    <i class="fas fa-magic mr-2"></i>Générer le plan d'action
+                </button>
+
+                <div id="requestLoading" class="hidden mb-6 flex items-center space-x-3 text-yellow-600">
+                    <div class="loading-spinner"></div>
+                    <span>Analyse GPT-4 en cours...</span>
+                </div>
+
+                <div id="requestResults" class="hidden fade-in">
+                    <!-- Analysis Summary -->
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                        <h3 class="font-bold text-gray-900 mb-2">Analyse de la demande</h3>
+                        <p class="text-gray-700" id="requestAnalysis"></p>
+                    </div>
+
+                    <!-- Action Plan -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-list-ol mr-2"></i>Plan d'action généré
+                        </h3>
+                        <div id="actionPlanSteps" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Warnings -->
+                    <div id="warningsSection" class="hidden mb-6">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">
+                            <i class="fas fa-exclamation-triangle mr-2 text-orange-600"></i>Avertissements
+                        </h3>
+                        <div id="warningsList" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Execute Button -->
+                    <button onclick="executePlan()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                        <i class="fas fa-play-circle mr-2"></i>Exécuter le plan
+                    </button>
+                </div>
+
+                <!-- Execution Results -->
+                <div id="executionResults" class="hidden fade-in mt-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">
+                        <i class="fas fa-check-circle mr-2 text-green-600"></i>Résultats d'exécution
+                    </h3>
+                    <div id="executionStepsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Execute Command -->
+            <div id="tab-command" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-terminal mr-2 text-green-600"></i>Exécution de Commande
+                    </h2>
+                    <p class="text-gray-600">Exécutez des commandes SSH avec classification automatique des risques</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Commande</label>
+                    <input type="text" id="commandInput" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono" placeholder="Exemple: df -h">
+                </div>
+
+                <button onclick="executeCommand()" class="mb-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                    <i class="fas fa-play mr-2"></i>Exécuter
+                </button>
+
+                <div id="commandLoading" class="hidden mb-6 flex items-center space-x-3 text-green-600">
+                    <div class="loading-spinner"></div>
+                    <span>Exécution en cours...</span>
+                </div>
+
+                <div id="commandResults" class="hidden fade-in">
+                    <!-- Risk Classification -->
+                    <div class="mb-6">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="text-sm font-medium text-gray-700">Niveau de risque:</span>
+                            <span id="commandRiskBadge" class="px-3 py-1 rounded-full text-sm font-medium border"></span>
+                        </div>
+                        <p class="text-sm text-gray-600" id="commandRiskReason"></p>
+                    </div>
+
+                    <!-- Command Output -->
+                    <div class="bg-gray-900 text-green-400 rounded-lg p-4 overflow-x-auto">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-gray-400">Sortie de la commande</span>
+                            <button onclick="copyOutput()" class="text-xs text-gray-400 hover:text-white">
+                                <i class="fas fa-copy mr-1"></i>Copier
+                            </button>
+                        </div>
+                        <pre id="commandOutput" class="command-output text-sm"></pre>
+                    </div>
+
+                    <!-- Execution Stats -->
+                    <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-500">Code de sortie</p>
+                            <p class="text-lg font-bold" id="commandExitCode">--</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-500">Durée</p>
+                            <p class="text-lg font-bold" id="commandDuration">--</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <p class="text-xs text-gray-500">Statut</p>
+                            <p class="text-lg font-bold" id="commandStatus">--</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Templates de Commandes -->
+            <div id="tab-templates" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-bookmark mr-2 text-indigo-600"></i>Templates de Commandes
+                    </h2>
+                    <p class="text-gray-600">Bibliothèque de templates avec variables dynamiques pour automatiser vos tâches courantes</p>
+                </div>
+
+                <!-- Search and Actions Bar -->
+                <div class="mb-6 flex items-center justify-between space-x-4">
+                    <div class="flex-1 max-w-md">
+                        <div class="relative">
+                            <input type="text" id="templateSearch" oninput="filterTemplates()" placeholder="Rechercher un template..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleFavoritesFilter()" id="favFilterBtn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                            <i class="fas fa-star mr-2 text-yellow-500"></i>Favoris
+                        </button>
+                        <button onclick="showCreateTemplateModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            <i class="fas fa-plus mr-2"></i>Nouveau template
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Category Tabs -->
+                <div class="mb-6 flex flex-wrap gap-2">
+                    <button onclick="filterByCategory('all')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium category-tab-active" data-category="all">
+                        <i class="fas fa-th mr-2"></i>Tous
+                    </button>
+                    <button onclick="filterByCategory('docker')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="docker">
+                        🐳 Docker
+                    </button>
+                    <button onclick="filterByCategory('nginx')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="nginx">
+                        🌐 Nginx
+                    </button>
+                    <button onclick="filterByCategory('backup')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="backup">
+                        💾 Backup
+                    </button>
+                    <button onclick="filterByCategory('monitoring')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="monitoring">
+                        📊 Monitoring
+                    </button>
+                    <button onclick="filterByCategory('security')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="security">
+                        🔒 Sécurité
+                    </button>
+                    <button onclick="filterByCategory('system')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="system">
+                        💻 Système
+                    </button>
+                    <button onclick="filterByCategory('pm2')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="pm2">
+                        🚀 PM2
+                    </button>
+                    <button onclick="filterByCategory('git')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="git">
+                        🔧 Git
+                    </button>
+                    <button onclick="filterByCategory('custom')" class="category-tab px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50" data-category="custom">
+                        ⚙️ Personnalisés
+                    </button>
+                </div>
+
+                <!-- Templates Grid -->
+                <div id="templatesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-center py-12 col-span-full">
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-gray-500">Chargement des templates...</p>
+                    </div>
+                </div>
+
+                <!-- No Results -->
+                <div id="noTemplatesFound" class="hidden text-center py-12">
+                    <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">Aucun template trouvé</p>
+                </div>
+            </div>
+
+            <!-- Tab 4: Classify Risk -->
+            <div id="tab-classify" class="tab-content hidden">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-shield-alt mr-2 text-purple-600"></i>Classification de Risque
+                    </h2>
+                    <p class="text-gray-600">Évaluez le niveau de risque d'une commande avant son exécution</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Commande à classifier</label>
+                    <input type="text" id="classifyInput" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono" placeholder="Exemple: rm -rf /tmp/*">
+                </div>
+
+                <button onclick="classifyRisk()" class="mb-6 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium">
+                    <i class="fas fa-search mr-2"></i>Classifier
+                </button>
+
+                <div id="classifyLoading" class="hidden mb-6 flex items-center space-x-3 text-purple-600">
+                    <div class="loading-spinner"></div>
+                    <span>Classification en cours...</span>
+                </div>
+
+                <div id="classifyResults" class="hidden fade-in">
+                    <!-- Risk Level Display -->
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-6 border border-purple-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-900">Niveau de risque détecté</h3>
+                            <span id="classifyRiskBadge" class="px-4 py-2 rounded-full text-lg font-bold border-2"></span>
+                        </div>
+                        <p class="text-gray-700 mb-4" id="classifyRiskReason"></p>
+                        
+                        <!-- Risk Details -->
+                        <div id="riskDetails" class="mt-4 p-4 bg-white rounded-lg border border-gray-200"></div>
+                    </div>
+
+                    <!-- Examples by Risk Level -->
+                    <div class="mt-6 grid grid-cols-3 gap-4">
+                        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                            <h4 class="font-bold text-green-800 mb-2">
+                                <i class="fas fa-check-circle mr-1"></i>SAFE
+                            </h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• ls, cat, grep</li>
+                                <li>• ps, top, df</li>
+                                <li>• git status</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                            <h4 class="font-bold text-yellow-800 mb-2">
+                                <i class="fas fa-exclamation-circle mr-1"></i>MODERATE
+                            </h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• systemctl restart</li>
+                                <li>• apt install</li>
+                                <li>• chmod, chown</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+                            <h4 class="font-bold text-red-800 mb-2">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>CRITICAL
+                            </h4>
+                            <ul class="text-sm text-gray-700 space-y-1">
+                                <li>• rm -rf</li>
+                                <li>• reboot, shutdown</li>
+                                <li>• DROP DATABASE</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentServerId = null;
+        let currentPlan = null;
+        let authToken = localStorage.getItem('authToken');
+
+        // Check authentication
+        if (!authToken) {
+            window.location.href = '/';
+        }
+
+        // API Helper
+        async function apiRequest(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            
+            const response = await fetch(`${API_BASE}${endpoint}`, options);
+            
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/';
+                return;
+            }
+            
+            return await response.json();
+        }
+
+        // Initialize
+        async function init() {
+            await loadServers();
+        }
+
+
+        // ✨ NOUVEAU : Rafraîchir automatiquement les serveurs quand la page devient visible
+        document.addEventListener('visibilitychange', async () => {
+            if (!document.hidden) {
+                console.log('📡 Page Agent DevOps visible - Rafraîchissement des serveurs...');
+                await loadServers();
+                console.log('✓ Liste des serveurs rafraîchie');
+            }
+        });
+
+        // ✨ NOUVEAU : Rafraîchir aussi lors du focus sur la fenêtre
+        window.addEventListener('focus', async () => {
+            console.log('📡 Fenêtre Agent DevOps en focus - Rafraîchissement des serveurs...');
+            await loadServers();
+            console.log('✓ Liste des serveurs rafraîchie');
+        });
+
+
+        // Load servers
+        async function loadServers() {
+            try {
+                const data = await apiRequest('/servers/list');
+                const select = document.getElementById('serverSelect');
+                select.innerHTML = '';
+                
+                if (data.success && data.servers.length > 0) {
+                    data.servers.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.id;
+                        option.textContent = `${server.name} (${server.host})`;
+                        select.appendChild(option);
+                    });
+                    currentServerId = data.servers[0].id;
+                    
+                    // 🔧 NOUVEAU: Dispatcher l'événement pour le serveur par défaut
+                    const firstServer = data.servers[0];
+                    window.dispatchEvent(new CustomEvent('serverContextChanged', {
+                        detail: {
+                            id: firstServer.id,
+                            name: firstServer.name,
+                            host: firstServer.host,
+                            connected: true
+                        }
+                    }));
+                    console.log('📡 [Agent DevOps] Initial server loaded:', firstServer.name);
+                } else {
+                    select.innerHTML = '<option>Aucun serveur disponible</option>';
+                }
+            } catch (error) {
+                console.error('Error loading servers:', error);
+                showNotification('Erreur lors du chargement des serveurs', 'error');
+            }
+        }
+
+        
+        // ✨ NOUVEAU : Fonction pour rafraîchir manuellement les serveurs
+        async function refreshServers() {
+            const btn = event.target.closest('button');
+            const icon = btn.querySelector('i');
+            
+            // Animation rotation
+            icon.style.animation = 'spin 0.5s linear';
+            
+            await loadServers();
+            
+            // Notification
+            showNotification('✓ Liste des serveurs rafraîchie', 'success');
+            
+            setTimeout(() => {
+                icon.style.animation = '';
+            }, 500);
+        }
+
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('tab-active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            
+            // Add active class to selected button
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('tab-active');
+        }
+
+        // Analyze Infrastructure
+        async function analyzeInfrastructure() {
+            const serverId = currentServerId || document.getElementById('serverSelect').value;
+            if (!serverId) {
+                showNotification('Veuillez sélectionner un serveur', 'warning');
+                return;
+            }
+
+            const loading = document.getElementById('analyzeLoading');
+            const results = document.getElementById('analyzeResults');
+            
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            try {
+                const data = await apiRequest('/ai/agent/analyze-infrastructure', 'POST', { serverId });
+                
+                if (data.success) {
+                    displayInfrastructureAnalysis(data.analysis);
+                    results.classList.remove('hidden');
+                    showNotification('Analyse terminée avec succès', 'success');
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Analyse échouée'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Erreur lors de l\'analyse', 'error');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function displayInfrastructureAnalysis(analysis) {
+            // Health Score
+            const score = analysis.health_score || 0;
+            const scoreEl = document.getElementById('healthScore');
+            const iconEl = document.getElementById('healthIcon');
+            
+            scoreEl.textContent = score + '/100';
+            
+            if (score >= 90) {
+                scoreEl.className = 'text-4xl font-bold health-score-excellent';
+                iconEl.innerHTML = '<i class="fas fa-check-circle text-green-600"></i>';
+            } else if (score >= 70) {
+                scoreEl.className = 'text-4xl font-bold health-score-good';
+                iconEl.innerHTML = '<i class="fas fa-heartbeat text-blue-600"></i>';
+            } else if (score >= 50) {
+                scoreEl.className = 'text-4xl font-bold health-score-fair';
+                iconEl.innerHTML = '<i class="fas fa-exclamation-circle text-yellow-600"></i>';
+            } else {
+                scoreEl.className = 'text-4xl font-bold health-score-poor';
+                iconEl.innerHTML = '<i class="fas fa-exclamation-triangle text-red-600"></i>';
+            }
+            
+            document.getElementById('healthSummary').textContent = analysis.summary || 'Aucun résumé disponible';
+
+            // Findings
+            const findingsList = document.getElementById('findingsList');
+            findingsList.innerHTML = '';
+            
+            if (analysis.findings && analysis.findings.length > 0) {
+                analysis.findings.forEach(finding => {
+                    const severityClass = finding.severity === 'critical' ? 'severity-critical' : 
+                                         finding.severity === 'warning' ? 'severity-warning' : 'severity-info';
+                    const icon = finding.severity === 'critical' ? 'fa-times-circle' :
+                                finding.severity === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+                    
+                    const div = document.createElement('div');
+                    div.className = `p-4 rounded-lg ${severityClass}`;
+                    div.innerHTML = `
+                        <div class="flex items-start space-x-3">
+                            <i class="fas ${icon} text-lg mt-1"></i>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900">${finding.title || 'Sans titre'}</h4>
+                                <p class="text-sm text-gray-700 mt-1">${finding.description || ''}</p>
+                                ${finding.recommendation ? `<p class="text-sm text-gray-600 mt-2"><strong>Recommandation:</strong> ${finding.recommendation}</p>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    findingsList.appendChild(div);
+                });
+            } else {
+                findingsList.innerHTML = '<p class="text-gray-500 text-center py-4">Aucun constat trouvé</p>';
+            }
+
+            // Recommendations
+            const recommendationsList = document.getElementById('recommendationsList');
+            recommendationsList.innerHTML = '';
+            
+            if (analysis.recommendations && analysis.recommendations.length > 0) {
+                analysis.recommendations.forEach((rec, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-start space-x-3 p-3 bg-blue-50 rounded-lg';
+                    div.innerHTML = `
+                        <span class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">${index + 1}</span>
+                        <p class="text-sm text-gray-700 flex-1">${rec}</p>
+                    `;
+                    recommendationsList.appendChild(div);
+                });
+            } else {
+                recommendationsList.innerHTML = '<p class="text-gray-500 text-center py-4">Aucune recommandation</p>';
+            }
+        }
+
+        // Analyze Request
+        async function analyzeRequest() {
+            const request = document.getElementById('requestInput').value.trim();
+            const serverId = currentServerId || document.getElementById('serverSelect').value;
+            
+            if (!request) {
+                showNotification('Veuillez entrer une demande', 'warning');
+                return;
+            }
+            
+            if (!serverId) {
+                showNotification('Veuillez sélectionner un serveur', 'warning');
+                return;
+            }
+
+            const loading = document.getElementById('requestLoading');
+            const results = document.getElementById('requestResults');
+            const executionResults = document.getElementById('executionResults');
+            
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+            executionResults.classList.add('hidden');
+
+            try {
+                const data = await apiRequest('/ai/agent/analyze-request', 'POST', { 
+                    request, 
+                    serverId,
+                    context: { urgency: 'normal' }
+                });
+                
+                if (data.success) {
+                    currentPlan = data.plan.plan;
+                    displayActionPlan(data.plan);
+                    results.classList.remove('hidden');
+                    showNotification('Plan d\'action généré', 'success');
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Génération échouée'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Erreur lors de la génération du plan', 'error');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function displayActionPlan(planData) {
+            document.getElementById('requestAnalysis').textContent = planData.analysis || 'Aucune analyse disponible';
+
+            // Steps
+            const stepsList = document.getElementById('actionPlanSteps');
+            stepsList.innerHTML = '';
+            
+            if (planData.plan && planData.plan.steps) {
+                planData.plan.steps.forEach((step, index) => {
+                    const riskClass = step.risk_level === 'CRITICAL' ? 'border-red-300 bg-red-50' :
+                                     step.risk_level === 'MODERATE' ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50';
+                    const riskBadgeClass = `risk-badge-${step.risk_level}`;
+                    
+                    const div = document.createElement('div');
+                    div.className = `p-4 border-l-4 ${riskClass} rounded-lg`;
+                    div.innerHTML = `
+                        <div class="flex items-start justify-between mb-2">
+                            <h4 class="font-bold text-gray-900">
+                                <span class="inline-block w-6 h-6 bg-blue-600 text-white rounded-full text-center text-sm mr-2">${index + 1}</span>
+                                ${step.description}
+                            </h4>
+                            <span class="px-2 py-1 text-xs font-medium border rounded ${riskBadgeClass}">${step.risk_level}</span>
+                        </div>
+                        <code class="block bg-gray-900 text-green-400 px-3 py-2 rounded text-sm my-2">${step.command}</code>
+                        <p class="text-sm text-gray-600">${step.reasoning || step.risk_reason || ''}</p>
+                    `;
+                    stepsList.appendChild(div);
+                });
+            }
+
+            // Warnings
+            const warningsSection = document.getElementById('warningsSection');
+            const warningsList = document.getElementById('warningsList');
+            
+            if (planData.plan && planData.plan.warnings && planData.plan.warnings.length > 0) {
+                warningsSection.classList.remove('hidden');
+                warningsList.innerHTML = '';
+                
+                planData.plan.warnings.forEach(warning => {
+                    const div = document.createElement('div');
+                    div.className = 'p-3 bg-orange-50 border-l-4 border-orange-400 text-sm text-gray-700';
+                    div.innerHTML = `<i class="fas fa-exclamation-triangle text-orange-600 mr-2"></i>${warning}`;
+                    warningsList.appendChild(div);
+                });
+            } else {
+                warningsSection.classList.add('hidden');
+            }
+        }
+
+        // Execute Plan
+        async function executePlan() {
+            const serverId = currentServerId || document.getElementById('serverSelect').value;
+            
+            if (!currentPlan) {
+                showNotification('Aucun plan à exécuter', 'warning');
+                return;
+            }
+
+            try {
+                const data = await apiRequest('/ai/agent/execute-plan', 'POST', { 
+                    serverId,
+                    plan: currentPlan
+                });
+                
+                if (data.success) {
+                    displayExecutionResults(data.result);
+                    document.getElementById('executionResults').classList.remove('hidden');
+                    showNotification('Plan exécuté avec succès', 'success');
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Exécution échouée'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Erreur lors de l\'exécution', 'error');
+            }
+        }
+
+        function displayExecutionResults(result) {
+            const stepsList = document.getElementById('executionStepsList');
+            stepsList.innerHTML = '';
+            
+            // Summary
+            const summary = document.createElement('div');
+            summary.className = 'mb-4 p-4 bg-gray-50 rounded-lg';
+            summary.innerHTML = `
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-sm text-gray-500">Total</p>
+                        <p class="text-2xl font-bold text-gray-900">${result.summary.total}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Complétées</p>
+                        <p class="text-2xl font-bold text-green-600">${result.summary.completed}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Échecs</p>
+                        <p class="text-2xl font-bold text-red-600">${result.summary.failed}</p>
+                    </div>
+                </div>
+            `;
+            stepsList.appendChild(summary);
+            
+            // Steps
+            if (result.steps) {
+                result.steps.forEach(step => {
+                    const statusClass = step.status === 'completed' ? 'bg-green-50 border-green-300' :
+                                       step.status === 'failed' ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-300';
+                    const statusIcon = step.status === 'completed' ? 'fa-check-circle text-green-600' :
+                                      step.status === 'failed' ? 'fa-times-circle text-red-600' : 'fa-clock text-gray-600';
+                    
+                    const div = document.createElement('div');
+                    div.className = `p-4 border-l-4 ${statusClass} rounded-lg`;
+                    div.innerHTML = `
+                        <div class="flex items-start justify-between mb-2">
+                            <h4 class="font-bold text-gray-900">
+                                <i class="fas ${statusIcon} mr-2"></i>
+                                Étape ${step.step}: ${step.description || 'Sans description'}
+                            </h4>
+                            <span class="text-xs text-gray-500">Exit code: ${step.exit_code !== undefined ? step.exit_code : 'N/A'}</span>
+                        </div>
+                        ${step.command ? `<code class="block bg-gray-900 text-green-400 px-3 py-2 rounded text-sm my-2">${step.command}</code>` : ''}
+                        ${step.output ? `<pre class="text-sm text-gray-700 mt-2 overflow-x-auto">${step.output.substring(0, 500)}</pre>` : ''}
+                    `;
+                    stepsList.appendChild(div);
+                });
+            }
+        }
+
+        // Execute Command
+        async function executeCommand() {
+            const command = document.getElementById('commandInput').value.trim();
+            const serverId = currentServerId || document.getElementById('serverSelect').value;
+            
+            if (!command) {
+                showNotification('Veuillez entrer une commande', 'warning');
+                return;
+            }
+            
+            if (!serverId) {
+                showNotification('Veuillez sélectionner un serveur', 'warning');
+                return;
+            }
+
+            const loading = document.getElementById('commandLoading');
+            const results = document.getElementById('commandResults');
+            
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            try {
+                const data = await apiRequest('/ai/agent/execute-command', 'POST', { serverId, command });
+                
+                if (data.success) {
+                    displayCommandResults(data);
+                    results.classList.remove('hidden');
+                    showNotification('Commande exécutée', 'success');
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Exécution échouée'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Erreur lors de l\'exécution', 'error');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function displayCommandResults(data) {
+            // Risk
+            const riskBadge = document.getElementById('commandRiskBadge');
+            riskBadge.textContent = data.risk.level;
+            riskBadge.className = `px-3 py-1 rounded-full text-sm font-medium border risk-badge-${data.risk.level}`;
+            
+            document.getElementById('commandRiskReason').textContent = data.risk.reason || '';
+
+            // Output
+            document.getElementById('commandOutput').textContent = data.result.output || 'Aucune sortie';
+            
+            // Stats
+            document.getElementById('commandExitCode').textContent = data.result.exit_code !== undefined ? data.result.exit_code : 'N/A';
+            document.getElementById('commandDuration').textContent = data.result.duration_ms ? `${data.result.duration_ms}ms` : 'N/A';
+            
+            const statusEl = document.getElementById('commandStatus');
+            if (data.result.success) {
+                statusEl.textContent = 'Succès';
+                statusEl.className = 'text-lg font-bold text-green-600';
+            } else {
+                statusEl.textContent = 'Échec';
+                statusEl.className = 'text-lg font-bold text-red-600';
+            }
+        }
+
+        // Classify Risk
+        async function classifyRisk() {
+            const command = document.getElementById('classifyInput').value.trim();
+            
+            if (!command) {
+                showNotification('Veuillez entrer une commande', 'warning');
+                return;
+            }
+
+            const loading = document.getElementById('classifyLoading');
+            const results = document.getElementById('classifyResults');
+            
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            try {
+                const data = await apiRequest('/ai/agent/classify-risk', 'POST', { command });
+                
+                if (data.success) {
+                    displayRiskClassification(data);
+                    results.classList.remove('hidden');
+                    showNotification('Classification terminée', 'success');
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Classification échouée'), 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Erreur lors de la classification', 'error');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function displayRiskClassification(data) {
+            const riskBadge = document.getElementById('classifyRiskBadge');
+            riskBadge.textContent = data.risk.level;
+            riskBadge.className = `px-4 py-2 rounded-full text-lg font-bold border-2 risk-badge-${data.risk.level}`;
+            
+            document.getElementById('classifyRiskReason').textContent = data.risk.reason || '';
+
+            // Risk Details
+            const details = document.getElementById('riskDetails');
+            const autoExecute = data.risk.level === 'SAFE';
+            const requiresConfirmation = data.risk.level !== 'SAFE';
+            
+            details.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500 mb-1">Exécution automatique</p>
+                        <p class="font-semibold ${autoExecute ? 'text-green-600' : 'text-red-600'}">
+                            <i class="fas ${autoExecute ? 'fa-check' : 'fa-times'} mr-1"></i>
+                            ${autoExecute ? 'Autorisée' : 'Non autorisée'}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500 mb-1">Confirmation requise</p>
+                        <p class="font-semibold ${requiresConfirmation ? 'text-yellow-600' : 'text-green-600'}">
+                            <i class="fas ${requiresConfirmation ? 'fa-exclamation-triangle' : 'fa-check'} mr-1"></i>
+                            ${requiresConfirmation ? 'Oui' : 'Non'}
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-blue-50 rounded text-sm text-gray-700">
+                    <strong>Commande analysée:</strong>
+                    <code class="block mt-2 bg-gray-900 text-green-400 px-3 py-2 rounded">${data.command}</code>
+                </div>
+            `;
+        }
+
+        // Utility functions
+        function copyOutput() {
+            const output = document.getElementById('commandOutput').textContent;
+            navigator.clipboard.writeText(output).then(() => {
+                showNotification('Sortie copiée', 'success');
+            });
+        }
+
+        function showNotification(message, type = 'info') {
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-yellow-600',
+                info: 'bg-blue-600'
+            };
+            
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 fade-in`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = '/';
+        }
+
+        // Update server selection
+        document.getElementById('serverSelect').addEventListener('change', (e) => {
+            currentServerId = e.target.value;
+            
+            // 🔧 NOUVEAU: Dispatcher l'événement pour l'Assistant AI
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            const serverText = selectedOption.textContent; // Ex: "Production (192.168.1.10)"
+            const match = serverText.match(/^(.+?)\s*\((.+?)\)$/);
+            
+            if (match) {
+                const serverName = match[1].trim();
+                const serverHost = match[2].trim();
+                
+                window.dispatchEvent(new CustomEvent('serverContextChanged', {
+                    detail: {
+                        id: currentServerId,
+                        name: serverName,
+                        host: serverHost,
+                        connected: true
+                    }
+                }));
+                console.log('📡 [Agent DevOps] Event dispatched: serverContextChanged', {
+                    id: currentServerId,
+                    name: serverName,
+                    host: serverHost
+                });
+            }
+        });
+
+        // Initialize on load
+        init();
+
+        // ============================================
+        // TEMPLATES DE COMMANDES - JavaScript Functions
+        // ============================================
+        
+        let allTemplates = [];
+        let filteredTemplates = [];
+        let currentCategory = 'all';
+        let showOnlyFavorites = false;
+        let currentTemplateForExecution = null;
+
+        // Load all templates from backend
+        async function loadTemplates() {
+            try {
+                const data = await apiRequest('/templates');
+                if (data.success) {
+                    allTemplates = data.data || [];
+                    filterTemplates();
+                } else {
+                    showNotification('Erreur lors du chargement des templates', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading templates:', error);
+                showNotification('Erreur lors du chargement des templates', 'error');
+            }
+        }
+
+        // Filter templates based on search, category, and favorites
+        function filterTemplates() {
+            const searchTerm = document.getElementById('templateSearch').value.toLowerCase();
+            
+            filteredTemplates = allTemplates.filter(template => {
+                // Category filter
+                if (currentCategory !== 'all' && template.category !== currentCategory) {
+                    return false;
+                }
+                
+                // Favorites filter
+                if (showOnlyFavorites && !template.is_favorite) {
+                    return false;
+                }
+                
+                // Search filter
+                if (searchTerm) {
+                    const nameMatch = (template.name || '').toLowerCase().includes(searchTerm);
+                    const descMatch = (template.description || '').toLowerCase().includes(searchTerm);
+                    const commandMatch = (template.command || '').toLowerCase().includes(searchTerm);
+                    return nameMatch || descMatch || commandMatch;
+                }
+                
+                return true;
+            });
+            
+            displayTemplates();
+        }
+
+        // Display templates in grid
+        function displayTemplates() {
+            const grid = document.getElementById('templatesGrid');
+            const noResults = document.getElementById('noTemplatesFound');
+            
+            if (filteredTemplates.length === 0) {
+                grid.classList.add('hidden');
+                noResults.classList.remove('hidden');
+                return;
+            }
+            
+            grid.classList.remove('hidden');
+            noResults.classList.add('hidden');
+            
+            grid.innerHTML = filteredTemplates.map(template => {
+                const categoryIcons = {
+                    docker: '🐳', nginx: '🌐', backup: '💾', monitoring: '📊',
+                    security: '🔒', system: '💻', pm2: '🚀', git: '🔧', custom: '⚙️'
+                };
+                const icon = categoryIcons[template.category] || '⚙️';
+                const isPublic = !template.user_id;
+                
+                return `
+                    <div class="template-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md" data-template-id="${template.id}">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-2xl">${icon}</span>
+                                <h4 class="font-bold text-gray-900 text-sm">${template.name}</h4>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                ${isPublic ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Public</span>' : ''}
+                                <i class="fas fa-star favorite-star ${template.is_favorite ? 'active' : 'text-gray-300'}" 
+                                   onclick="toggleFavorite(${template.id}, event)" 
+                                   title="${template.is_favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}"></i>
+                            </div>
+                        </div>
+                        
+                        <p class="text-xs text-gray-600 mb-3 line-clamp-2">${template.description || 'Pas de description'}</p>
+                        
+                        <div class="bg-gray-900 text-green-400 rounded p-2 mb-3 overflow-x-auto">
+                            <code class="text-xs">${escapeHtml(template.command)}</code>
+                        </div>
+                        
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span><i class="fas fa-chart-line mr-1"></i>${template.usage_count || 0} utilisations</span>
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <button onclick="useTemplate(${template.id})" class="flex-1 px-3 py-2 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                                <i class="fas fa-play mr-1"></i>Utiliser
+                            </button>
+                            ${!isPublic ? `
+                            <button onclick="editTemplate(${template.id})" class="px-3 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteTemplate(${template.id})" class="px-3 py-2 bg-red-600 text-white rounded text-xs hover:bg-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Filter by category
+        function filterByCategory(category) {
+            currentCategory = category;
+            
+            // Update active tab
+            document.querySelectorAll('.category-tab').forEach(btn => {
+                btn.classList.remove('category-tab-active');
+                if (btn.dataset.category === category) {
+                    btn.classList.add('category-tab-active');
+                }
+            });
+            
+            filterTemplates();
+        }
+
+        // Toggle favorites filter
+        function toggleFavoritesFilter() {
+            showOnlyFavorites = !showOnlyFavorites;
+            const btn = document.getElementById('favFilterBtn');
+            
+            if (showOnlyFavorites) {
+                btn.classList.add('bg-yellow-100', 'border-yellow-400');
+                btn.classList.remove('border-gray-300');
+            } else {
+                btn.classList.remove('bg-yellow-100', 'border-yellow-400');
+                btn.classList.add('border-gray-300');
+            }
+            
+            filterTemplates();
+        }
+
+        // Toggle favorite status
+        async function toggleFavorite(templateId, event) {
+            event.stopPropagation();
+            
+            try {
+                const data = await apiRequest(`/templates/${templateId}/favorite`, 'POST');
+                if (data.success) {
+                    // Update local data
+                    const template = allTemplates.find(t => t.id === templateId);
+                    if (template) {
+                        template.is_favorite = data.data.is_favorite;
+                    }
+                    filterTemplates();
+                    showNotification(data.data.is_favorite ? 'Ajouté aux favoris' : 'Retiré des favoris', 'success');
+                }
+            } catch (error) {
+                console.error('Error toggling favorite:', error);
+                showNotification('Erreur lors de la modification', 'error');
+            }
+        }
+
+        // Use template
+        async function useTemplate(templateId) {
+            const template = allTemplates.find(t => t.id === templateId);
+            if (!template) return;
+            
+            // Increment usage counter
+            try {
+                await apiRequest(`/templates/${templateId}/use`, 'POST');
+            } catch (error) {
+                console.error('Error incrementing usage:', error);
+            }
+            
+            // Extract variables from command
+            const variableRegex = /\{\{(\w+)\}\}/g;
+            const variables = [];
+            let match;
+            
+            while ((match = variableRegex.exec(template.command)) !== null) {
+                if (!variables.includes(match[1])) {
+                    variables.push(match[1]);
+                }
+            }
+            
+            if (variables.length > 0) {
+                // Show variable input modal
+                showVariableModal(template, variables);
+            } else {
+                // No variables, directly use the command
+                applyCommandToExecutionTab(template.command);
+            }
+        }
+
+        // Show variable input modal
+        function showVariableModal(template, variables) {
+            currentTemplateForExecution = template;
+            
+            document.getElementById('variableTemplatePreview').textContent = template.command;
+            
+            const inputsContainer = document.getElementById('variableInputs');
+            inputsContainer.innerHTML = variables.map(varName => `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        ${varName} *
+                    </label>
+                    <input type="text" 
+                           name="${varName}" 
+                           required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Valeur pour ${varName}">
+                </div>
+            `).join('');
+            
+            document.getElementById('variableModal').classList.remove('hidden');
+        }
+
+        // Close variable modal
+        function closeVariableModal() {
+            document.getElementById('variableModal').classList.add('hidden');
+            currentTemplateForExecution = null;
+        }
+
+        // Apply variables and use command
+        function applyVariables(event) {
+            event.preventDefault();
+            
+            if (!currentTemplateForExecution) return;
+            
+            const formData = new FormData(event.target);
+            let command = currentTemplateForExecution.command;
+            
+            // Replace all variables
+            for (let [key, value] of formData.entries()) {
+                const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+                command = command.replace(regex, value);
+            }
+            
+            // Apply to execution tab
+            applyCommandToExecutionTab(command);
+            
+            closeVariableModal();
+        }
+
+        // Apply command to execution tab
+        function applyCommandToExecutionTab(command) {
+            // Switch to command execution tab
+            switchTab('command');
+            
+            // Fill command input
+            document.getElementById('commandInput').value = command;
+            
+            // Focus on input
+            document.getElementById('commandInput').focus();
+            
+            showNotification('Commande prête à exécuter', 'success');
+        }
+
+        // Show create template modal
+        function showCreateTemplateModal() {
+            document.getElementById('templateModalTitle').textContent = 'Nouveau Template';
+            document.getElementById('templateForm').reset();
+            document.getElementById('templateId').value = '';
+            document.getElementById('templateModal').classList.remove('hidden');
+        }
+
+        // Edit template
+        async function editTemplate(templateId) {
+            const template = allTemplates.find(t => t.id === templateId);
+            if (!template) return;
+            
+            document.getElementById('templateModalTitle').textContent = 'Éditer Template';
+            document.getElementById('templateId').value = template.id;
+            document.getElementById('templateName').value = template.name;
+            document.getElementById('templateDescription').value = template.description || '';
+            document.getElementById('templateCommand').value = template.command;
+            document.getElementById('templateCategory').value = template.category;
+            
+            document.getElementById('templateModal').classList.remove('hidden');
+        }
+
+        // Close template modal
+        function closeTemplateModal() {
+            document.getElementById('templateModal').classList.add('hidden');
+        }
+
+        // Save template (create or update)
+        async function saveTemplate(event) {
+            event.preventDefault();
+            
+            const templateId = document.getElementById('templateId').value;
+            const templateData = {
+                name: document.getElementById('templateName').value,
+                description: document.getElementById('templateDescription').value,
+                command: document.getElementById('templateCommand').value,
+                category: document.getElementById('templateCategory').value
+            };
+            
+            try {
+                let data;
+                if (templateId) {
+                    // Update
+                    data = await apiRequest(`/templates/${templateId}`, 'PUT', templateData);
+                } else {
+                    // Create
+                    data = await apiRequest('/templates', 'POST', templateData);
+                }
+                
+                if (data.success) {
+                    showNotification(data.message || 'Template enregistré avec succès', 'success');
+                    closeTemplateModal();
+                    await loadTemplates(); // Reload templates
+                } else {
+                    showNotification('Erreur: ' + (data.error || 'Enregistrement échoué'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving template:', error);
+                showNotification('Erreur lors de l\'enregistrement', 'error');
+            }
+        }
+
+        // Delete template
+        async function deleteTemplate(templateId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce template ?')) {
+                return;
+            }
+            
+            try {
+                const data = await apiRequest(`/templates/${templateId}`, 'DELETE');
+                if (data.success) {
+                    showNotification('Template supprimé', 'success');
+                    await loadTemplates(); // Reload templates
+                } else {
+                    showNotification('Erreur lors de la suppression', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting template:', error);
+                showNotification('Erreur lors de la suppression', 'error');
+            }
+        }
+
+        // Utility: Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load templates when switching to templates tab
+        const originalSwitchTab = switchTab;
+        switchTab = function(tabName) {
+            originalSwitchTab(tabName);
+            
+            if (tabName === 'templates' && allTemplates.length === 0) {
+                loadTemplates();
+            }
+        };
+    </script>
+
+    <!-- Modal: Create/Edit Template -->
+    <div id="templateModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="modal-backdrop fixed inset-0" onclick="closeTemplateModal()"></div>
+            <div class="bg-white rounded-lg shadow-xl z-50 w-full max-w-2xl p-6 relative">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-900" id="templateModalTitle">Nouveau Template</h3>
+                    <button onclick="closeTemplateModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="templateForm" onsubmit="saveTemplate(event)">
+                    <input type="hidden" id="templateId">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nom du template *</label>
+                        <input type="text" id="templateName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ex: Docker - Liste conteneurs">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="templateDescription" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Description courte du template"></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Commande *</label>
+                        <textarea id="templateCommand" required rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" placeholder="Ex: docker logs {{CONTAINER_NAME}} --tail {{LINES}}"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>Utilisez {{VARIABLE_NAME}} pour les variables dynamiques
+                        </p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie *</label>
+                        <select id="templateCategory" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="custom">⚙️ Personnalisé</option>
+                            <option value="docker">🐳 Docker</option>
+                            <option value="nginx">🌐 Nginx</option>
+                            <option value="backup">💾 Backup</option>
+                            <option value="monitoring">📊 Monitoring</option>
+                            <option value="security">🔒 Sécurité</option>
+                            <option value="system">💻 Système</option>
+                            <option value="pm2">🚀 PM2</option>
+                            <option value="git">🔧 Git</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeTemplateModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Annuler
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-save mr-2"></i>Enregistrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Variable Input -->
+    <div id="variableModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="modal-backdrop fixed inset-0" onclick="closeVariableModal()"></div>
+            <div class="bg-white rounded-lg shadow-xl z-50 w-full max-w-lg p-6 relative">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Remplir les variables</h3>
+                    <button onclick="closeVariableModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <p class="text-sm text-gray-700">
+                        <i class="fas fa-terminal mr-2 text-blue-600"></i>
+                        <span id="variableTemplatePreview" class="font-mono text-xs"></span>
+                    </p>
+                </div>
+                
+                <form id="variableForm" onsubmit="applyVariables(event)">
+                    <div id="variableInputs" class="space-y-3 mb-4">
+                        <!-- Dynamic variable inputs will be inserted here -->
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeVariableModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Annuler
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <i class="fas fa-play mr-2"></i>Utiliser la commande
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- PostMessage Communication with Parent Dashboard -->
+    <script src="/iframe-postmessage-code.js"></script>
+    <script>
+        // Override initializeApp for this page
+        function initializeApp() {
+            const token = getAuthToken();
+            console.log('✅ Agent DevOps: App initialized with token:', !!token);
+            
+            // Reinitialize the app if token is available
+            if (token) {
+                loadServers();
+            }
+        }
+
+        // Override cleanupApp for this page
+        function cleanupApp() {
+            console.log('🧹 Agent DevOps: App cleaned up');
+            
+            // Clear output
+            const outputEl = document.getElementById('output');
+            if (outputEl) {
+                outputEl.innerHTML = '';
+            }
+            
+            // Clear request input
+            const requestInput = document.getElementById('requestInput');
+            if (requestInput) {
+                requestInput.value = '';
+            }
+            
+            // Reset server selection
+            const serverSelect = document.getElementById('serverSelect');
+            if (serverSelect) {
+                serverSelect.selectedIndex = 0;
+            }
+        }
+    </script>
+</body>
+</html>

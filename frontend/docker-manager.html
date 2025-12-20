@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire Docker - VPS DevOps Agent</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .docker-logo {
+            color: #2496ED;
+            font-size: 32px;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2496ED;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .tab-btn.active {
+            background: #2496ED;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: #2496ED;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .container-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .container-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2496ED;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container-item.running {
+            border-left-color: #28a745;
+        }
+
+        .container-item.stopped {
+            border-left-color: #dc3545;
+        }
+
+        .container-info {
+            flex: 1;
+        }
+
+        .container-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .container-image {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .container-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-running {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-stopped {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .container-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .image-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .image-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .image-info {
+            flex: 1;
+        }
+
+        .image-tag {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .image-size {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .logs-viewer {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2496ED;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+
+        .code-editor {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .port-mapping {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .port-mapping input {
+            flex: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2496ED;
+        }
+
+        .stat-card-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body>
+    <script src="/iframe-detector.js"></script>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fab fa-docker docker-logo"></i>
+                Gestionnaire Docker
+            </h1>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalContainers">0</div>
+                    <div class="stat-label">Conteneurs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="runningContainers">0</div>
+                    <div class="stat-label">En cours</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalImages">0</div>
+                    <div class="stat-label">Images</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('containers')">
+                <i class="fas fa-box"></i> Conteneurs
+            </button>
+            <button class="tab-btn" onclick="switchTab('images')">
+                <i class="fas fa-compact-disc"></i> Images
+            </button>
+            <button class="tab-btn" onclick="switchTab('create')">
+                <i class="fas fa-plus-circle"></i> Créer Conteneur
+            </button>
+            <button class="tab-btn" onclick="switchTab('generators')">
+                <i class="fas fa-code"></i> Générateurs
+            </button>
+        </div>
+
+        <!-- Tab: Conteneurs -->
+        <div id="containers-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Liste des Conteneurs</h2>
+                    <button class="btn btn-primary" onclick="refreshContainers()">
+                        <i class="fas fa-sync"></i> Actualiser
+                    </button>
+                </div>
+                <div id="containersList" class="container-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Chargement des conteneurs...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Images -->
+        <div id="images-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Images Docker</h2>
+                    <button class="btn btn-primary" onclick="showPullImageModal()">
+                        <i class="fas fa-download"></i> Pull Image
+                    </button>
+                </div>
+                <div id="imagesList" class="image-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Chargement des images...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Créer Conteneur -->
+        <div id="create-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Créer un Conteneur</h2>
+                </div>
+                <form id="createContainerForm" onsubmit="createContainer(event)">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Image Docker *</label>
+                            <input type="text" class="form-input" id="containerImage" 
+                                   placeholder="nginx:latest" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Nom du Conteneur</label>
+                            <input type="text" class="form-input" id="containerName" 
+                                   placeholder="my-container">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Ports (Host:Container)</label>
+                        <div id="portMappings">
+                            <div class="port-mapping">
+                                <input type="text" class="form-input" placeholder="8080" id="hostPort1">
+                                <span>:</span>
+                                <input type="text" class="form-input" placeholder="80" id="containerPort1">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addPortMapping()">
+                            <i class="fas fa-plus"></i> Ajouter Port
+                        </button>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Variables d'Environnement</label>
+                        <textarea class="form-textarea" id="containerEnv" 
+                                  placeholder="KEY1=value1&#10;KEY2=value2"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Volumes (Host:Container)</label>
+                        <textarea class="form-textarea" id="containerVolumes" 
+                                  placeholder="/host/path:/container/path&#10;/another/path:/data"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play"></i> Créer et Démarrer
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab: Générateurs -->
+        <div id="generators-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Générateur Dockerfile</h2>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Type de Projet</label>
+                        <select class="form-select" id="dockerfileType" onchange="generateDockerfile()">
+                            <option value="nodejs">Node.js</option>
+                            <option value="python">Python</option>
+                            <option value="php">PHP</option>
+                            <option value="nginx">Nginx</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Port</label>
+                        <input type="number" class="form-input" id="dockerfilePort" 
+                               value="3000" onchange="generateDockerfile()">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="generateDockerfile()">
+                    <i class="fas fa-magic"></i> Générer Dockerfile
+                </button>
+                <div id="dockerfileOutput" class="code-editor" style="display: none;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Générateur docker-compose.yml</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nom du Projet</label>
+                    <input type="text" class="form-input" id="composeProjectName" 
+                           value="my-app">
+                </div>
+                <button class="btn btn-primary" onclick="generateCompose()">
+                    <i class="fas fa-magic"></i> Générer docker-compose.yml
+                </button>
+                <div id="composeOutput" class="code-editor" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Logs -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Logs du Conteneur</h3>
+                <button class="modal-close" onclick="closeModal('logsModal')">&times;</button>
+            </div>
+            <div id="logsContent" class="logs-viewer"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Pull Image -->
+    <div id="pullImageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pull Docker Image</h3>
+                <button class="modal-close" onclick="closeModal('pullImageModal')">&times;</button>
+            </div>
+            <form onsubmit="pullImage(event)">
+                <div class="form-group">
+                    <label class="form-label">Nom de l'Image</label>
+                    <input type="text" class="form-input" id="pullImageName" 
+                           placeholder="nginx:latest" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-download"></i> Télécharger
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Stats -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Statistiques du Conteneur</h3>
+                <button class="modal-close" onclick="closeModal('statsModal')">&times;</button>
+            </div>
+            <div id="statsContent" class="stats-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = '/api/docker';
+        const token = localStorage.getItem('authToken');
+
+        // Chargement initial
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDockerHealth();
+            refreshContainers();
+            refreshImages();
+        });
+
+        // Récupérer le token depuis le parent
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'AUTH_TOKEN') {
+                localStorage.setItem('authToken', event.data.token);
+            }
+        });
+
+        // Fonction API
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    ...options.headers
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+        }
+
+        // Health Check
+        async function loadDockerHealth() {
+            try {
+                const data = await apiCall('/health');
+                if (data.success) {
+                    document.getElementById('totalContainers').textContent = data.docker.containers;
+                    document.getElementById('runningContainers').textContent = data.docker.running;
+                    document.getElementById('totalImages').textContent = data.docker.images;
+                }
+            } catch (error) {
+                console.error('Erreur health check:', error);
+            }
+        }
+
+        // Gestion des tabs
+        function switchTab(tabName) {
+            // Mettre à jour les boutons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.tab-btn').classList.add('active');
+
+            // Mettre à jour le contenu
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            // Recharger les données si nécessaire
+            if (tabName === 'containers') refreshContainers();
+            if (tabName === 'images') refreshImages();
+        }
+
+        // === GESTION DES CONTENEURS ===
+
+        async function refreshContainers() {
+            const container = document.getElementById('containersList');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+
+            try {
+                const data = await apiCall('/containers');
+                
+                if (data.containers.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-box-open"></i>
+                            <p>Aucun conteneur Docker</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.containers.map(c => `
+                    <div class="container-item ${c.state}">
+                        <div class="container-info">
+                            <div class="container-name">${c.name}</div>
+                            <div class="container-image"><i class="fas fa-image"></i> ${c.image}</div>
+                            <div class="container-meta">
+                                <span><i class="fas fa-fingerprint"></i> ${c.id.substr(0, 12)}</span>
+                                <span class="status-badge status-${c.state}">${c.state.toUpperCase()}</span>
+                                <span><i class="fas fa-clock"></i> ${c.status}</span>
+                            </div>
+                        </div>
+                        <div class="container-actions">
+                            ${c.state === 'running' ? 
+                                `<button class="btn btn-sm btn-warning" onclick="stopContainer('${c.id}')">
+                                    <i class="fas fa-stop"></i> Stop
+                                </button>` : 
+                                `<button class="btn btn-sm btn-success" onclick="startContainer('${c.id}')">
+                                    <i class="fas fa-play"></i> Start
+                                </button>`
+                            }
+                            <button class="btn btn-sm btn-primary" onclick="restartContainer('${c.id}')">
+                                <i class="fas fa-redo"></i> Restart
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="showContainerLogs('${c.id}')">
+                                <i class="fas fa-terminal"></i> Logs
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="showContainerStats('${c.id}')">
+                                <i class="fas fa-chart-line"></i> Stats
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteContainer('${c.id}', '${c.name}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                loadDockerHealth();
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Erreur: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function startContainer(id) {
+            try {
+                await apiCall(`/containers/${id}/start`, { method: 'POST' });
+                showAlert('Conteneur démarré avec succès', 'success');
+                refreshContainers();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function stopContainer(id) {
+            try {
+                await apiCall(`/containers/${id}/stop`, { 
+                    method: 'POST',
+                    body: JSON.stringify({ timeout: 10 })
+                });
+                showAlert('Conteneur arrêté avec succès', 'success');
+                refreshContainers();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function restartContainer(id) {
+            try {
+                await apiCall(`/containers/${id}/restart`, { method: 'POST' });
+                showAlert('Conteneur redémarré avec succès', 'success');
+                refreshContainers();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteContainer(id, name) {
+            if (!confirm(`Supprimer le conteneur ${name} ?`)) return;
+
+            try {
+                await apiCall(`/containers/${id}?force=true`, { method: 'DELETE' });
+                showAlert('Conteneur supprimé avec succès', 'success');
+                refreshContainers();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function showContainerLogs(id) {
+            const modal = document.getElementById('logsModal');
+            const content = document.getElementById('logsContent');
+            
+            content.textContent = 'Chargement des logs...';
+            modal.classList.add('active');
+
+            try {
+                const data = await apiCall(`/containers/${id}/logs?tail=200`);
+                content.textContent = data.logs || 'Aucun log disponible';
+            } catch (error) {
+                content.textContent = 'Erreur: ' + error.message;
+            }
+        }
+
+        async function showContainerStats(id) {
+            const modal = document.getElementById('statsModal');
+            const content = document.getElementById('statsContent');
+            
+            content.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+            modal.classList.add('active');
+
+            try {
+                const data = await apiCall(`/containers/${id}/stats`);
+                const stats = data.stats;
+                
+                content.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.cpu}%</div>
+                        <div class="stat-card-label">CPU Usage</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.memory}</div>
+                        <div class="stat-card-label">Memory</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.memoryPercent}%</div>
+                        <div class="stat-card-label">Memory %</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.networkRx}</div>
+                        <div class="stat-card-label">Network RX</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.networkTx}</div>
+                        <div class="stat-card-label">Network TX</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.blockRead}</div>
+                        <div class="stat-card-label">Disk Read</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value">${stats.blockWrite}</div>
+                        <div class="stat-card-label">Disk Write</div>
+                    </div>
+                `;
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Erreur: ${error.message}</div>`;
+            }
+        }
+
+        // === CRÉATION DE CONTENEUR ===
+
+        async function createContainer(event) {
+            event.preventDefault();
+
+            const image = document.getElementById('containerImage').value;
+            const name = document.getElementById('containerName').value;
+            const envText = document.getElementById('containerEnv').value;
+            const volumesText = document.getElementById('containerVolumes').value;
+
+            // Parser les ports
+            const ports = {};
+            const portMappings = document.querySelectorAll('.port-mapping');
+            portMappings.forEach(mapping => {
+                const hostPort = mapping.querySelector('input:first-child').value;
+                const containerPort = mapping.querySelector('input:last-child').value;
+                if (hostPort && containerPort) {
+                    ports[`${containerPort}/tcp`] = parseInt(hostPort);
+                }
+            });
+
+            // Parser les variables d'environnement
+            const env = envText.split('\n')
+                .filter(line => line.trim())
+                .map(line => line.trim());
+
+            // Parser les volumes
+            const volumes = volumesText.split('\n')
+                .filter(line => line.trim())
+                .map(line => line.trim());
+
+            const options = {
+                image,
+                name: name || undefined,
+                ports,
+                env: env.length > 0 ? env : undefined,
+                volumes: volumes.length > 0 ? volumes : undefined
+            };
+
+            try {
+                const data = await apiCall('/containers', {
+                    method: 'POST',
+                    body: JSON.stringify(options)
+                });
+
+                if (data.success) {
+                    // Démarrer le conteneur
+                    await apiCall(`/containers/${data.container.id}/start`, { method: 'POST' });
+                    
+                    showAlert('Conteneur créé et démarré avec succès', 'success');
+                    
+                    // Réinitialiser le formulaire
+                    document.getElementById('createContainerForm').reset();
+                    
+                    // Retourner à l'onglet conteneurs
+                    switchTab('containers');
+                    refreshContainers();
+                }
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        let portMappingCount = 1;
+        function addPortMapping() {
+            portMappingCount++;
+            const container = document.getElementById('portMappings');
+            const div = document.createElement('div');
+            div.className = 'port-mapping';
+            div.innerHTML = `
+                <input type="text" class="form-input" placeholder="8080" id="hostPort${portMappingCount}">
+                <span>:</span>
+                <input type="text" class="form-input" placeholder="80" id="containerPort${portMappingCount}">
+            `;
+            container.appendChild(div);
+        }
+
+        // === GESTION DES IMAGES ===
+
+        async function refreshImages() {
+            const container = document.getElementById('imagesList');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Chargement...</div>';
+
+            try {
+                const data = await apiCall('/images');
+                
+                if (data.images.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-compact-disc"></i>
+                            <p>Aucune image Docker</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.images.map(img => `
+                    <div class="image-item">
+                        <div class="image-info">
+                            <div class="image-tag">${img.tags[0] || 'none'}</div>
+                            <div class="image-size">
+                                <i class="fas fa-hdd"></i> ${img.sizeMB} MB | 
+                                <i class="fas fa-fingerprint"></i> ${img.id.substr(7, 12)}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-danger" onclick="deleteImage('${img.id}')">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                loadDockerHealth();
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Erreur: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function showPullImageModal() {
+            document.getElementById('pullImageModal').classList.add('active');
+        }
+
+        async function pullImage(event) {
+            event.preventDefault();
+            const imageName = document.getElementById('pullImageName').value;
+
+            try {
+                showAlert('Téléchargement de l\'image en cours...', 'success');
+                closeModal('pullImageModal');
+
+                await apiCall('/images/pull', {
+                    method: 'POST',
+                    body: JSON.stringify({ image: imageName })
+                });
+
+                showAlert('Image téléchargée avec succès', 'success');
+                refreshImages();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteImage(id) {
+            if (!confirm('Supprimer cette image ?')) return;
+
+            try {
+                await apiCall(`/images/${id}?force=true`, { method: 'DELETE' });
+                showAlert('Image supprimée avec succès', 'success');
+                refreshImages();
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        // === GÉNÉRATEURS ===
+
+        async function generateDockerfile() {
+            const projectType = document.getElementById('dockerfileType').value;
+            const port = document.getElementById('dockerfilePort').value;
+
+            try {
+                const data = await apiCall('/generate/dockerfile', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        projectType,
+                        options: { port: parseInt(port) }
+                    })
+                });
+
+                const output = document.getElementById('dockerfileOutput');
+                output.textContent = data.dockerfile;
+                output.style.display = 'block';
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function generateCompose() {
+            const projectName = document.getElementById('composeProjectName').value;
+
+            const services = [
+                {
+                    name: 'web',
+                    image: 'nginx:latest',
+                    ports: ['80:80']
+                },
+                {
+                    name: 'db',
+                    image: 'postgres:14',
+                    environment: ['POSTGRES_PASSWORD=secret']
+                }
+            ];
+
+            try {
+                const data = await apiCall('/generate/compose', {
+                    method: 'POST',
+                    body: JSON.stringify({ projectName, services })
+                });
+
+                const output = document.getElementById('composeOutput');
+                output.textContent = data.compose;
+                output.style.display = 'block';
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        // === UTILS ===
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            
+            document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.container').firstChild);
+            
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

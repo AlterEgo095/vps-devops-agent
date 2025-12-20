@@ -1,0 +1,14 @@
+{
+  "dev": {
+    "driver": "sqlite3",
+    "filename": "../data/devops-agent.db"
+  },
+  "production": {
+    "driver": "sqlite3",
+    "filename": "../data/devops-agent.db"
+  },
+  "rbac": {
+    "driver": "sqlite3",
+    "filename": "../data/rbac.db"
+  }
+}

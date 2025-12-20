@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal SSH - AI DevOps Agent</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #terminal {
+            height: calc(100vh - 250px);
+            width: 100%;
+            background: #000;
+            padding: 10px;
+        }
+        
+        .xterm {
+            height: 100%;
+        }
+        
+        .xterm-viewport {
+            overflow-y: auto;
+        }
+        
+        .status-dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-connected { background-color: #10b981; }
+        .status-connecting { background-color: #f59e0b; animation: pulse 2s infinite; }
+        .status-disconnected { background-color: #ef4444; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+
+        <style>
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        </style>
+        <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body class="bg-gray-900 text-white">
+    <script src="/iframe-detector.js"></script>
+    <!-- Header -->
+    <div class="bg-gray-800 border-b border-gray-700 p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-terminal text-2xl text-blue-500"></i>
+                <h1 class="text-xl font-bold">Terminal SSH Intégré</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div id="status-indicator" class="flex items-center">
+                    <span class="status-dot status-disconnected"></span>
+                    <span id="status-text">Déconnecté</span>
+                </div>
+                <button onclick="window.location.href='/'" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition">
+                    <i class="fas fa-home mr-2"></i>Accueil
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Form -->
+    <div id="connection-form" class="max-w-7xl mx-auto p-6">
+        <div class="bg-gray-800 rounded-lg p-6 shadow-lg">
+            <h2 class="text-lg font-bold mb-4">
+                <i class="fas fa-plug mr-2"></i>
+                Connexion SSH
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Hôte</label>
+                    <input type="text" id="ssh-host" value="62.84.189.231" 
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                           placeholder="ex: 192.168.1.100">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Port</label>
+                    <input type="number" id="ssh-port" value="22"
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                           placeholder="22">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Utilisateur</label>
+                    <input type="text" id="ssh-username" value="root"
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                           placeholder="root">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Mot de passe</label>
+                    <input type="password" id="ssh-password" value="Matand@095"
+                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                           placeholder="•••••••">
+                </div>
+            </div>
+            
+            <div class="mt-6 flex space-x-4">
+                <button id="connect-btn" onclick="connectSSH()" 
+                        class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition">
+                    <i class="fas fa-plug mr-2"></i>
+                    Connecter
+                </button>
+                
+                <button id="disconnect-btn" onclick="disconnectSSH()" disabled
+                        class="px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-times-circle mr-2"></i>
+                    Déconnecter
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Container -->
+    <div class="max-w-7xl mx-auto px-6 pb-6">
+        <div class="bg-gray-800 rounded-lg overflow-hidden shadow-lg">
+            <!-- Terminal Toolbar -->
+            <div class="bg-gray-700 px-4 py-2 flex items-center justify-between border-b border-gray-600">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span class="ml-4 text-sm" id="terminal-title">Terminal SSH</span>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button onclick="clearTerminal()" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm transition">
+                        <i class="fas fa-eraser mr-1"></i>Clear
+                    </button>
+                    <button onclick="copySelection()" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm transition">
+                        <i class="fas fa-copy mr-1"></i>Copy
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Terminal -->
+            <div id="terminal"></div>
+        </div>
+    </div>
+
+    <!-- xterm.js -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
+    
+    <script>
+        const API_BASE_URL = '/api';
+        let ws = null;
+        let term = null;
+        let fitAddon = null;
+        let connected = false;
+        let authToken = null;
+
+        // Initialiser xterm.js
+        function initTerminal() {
+            term = new Terminal({
+                cursorBlink: true,
+                fontSize: 14,
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                theme: {
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    selection: '#4d4d4d',
+                    black: '#000000',
+                    red: '#e06c75',
+                    green: '#98c379',
+                    yellow: '#d19a66',
+                    blue: '#61afef',
+                    magenta: '#c678dd',
+                    cyan: '#56b6c2',
+                    white: '#abb2bf',
+                    brightBlack: '#5c6370',
+                    brightRed: '#e06c75',
+                    brightGreen: '#98c379',
+                    brightYellow: '#d19a66',
+                    brightBlue: '#61afef',
+                    brightMagenta: '#c678dd',
+                    brightCyan: '#56b6c2',
+                    brightWhite: '#ffffff'
+                },
+                allowProposedApi: true
+            });
+
+            // Addon pour ajuster automatiquement la taille
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+
+            // Addon pour les liens cliquables
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            term.loadAddon(webLinksAddon);
+
+            // Ouvrir le terminal
+            term.open(document.getElementById('terminal'));
+            fitAddon.fit();
+
+            // Message de bienvenue
+            term.writeln('\x1b[1;32m╔════════════════════════════════════════════════════════════╗\x1b[0m');
+            term.writeln('\x1b[1;32m║         Terminal SSH Intégré - AI DevOps Agent            ║\x1b[0m');
+            term.writeln('\x1b[1;32m╚════════════════════════════════════════════════════════════╝\x1b[0m');
+            term.writeln('');
+            term.writeln('\x1b[1;33m→ Configurez la connexion SSH ci-dessus et cliquez sur "Connecter"\x1b[0m');
+            term.writeln('');
+
+            // Gérer la saisie utilisateur
+            term.onData(data => {
+                if (connected && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'data',
+                        data: data
+                    }));
+                }
+            });
+
+            // Gérer le redimensionnement
+            window.addEventListener('resize', () => {
+                if (fitAddon) {
+                    fitAddon.fit();
+                    if (connected && ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'resize',
+                            cols: term.cols,
+                            rows: term.rows
+                        }));
+                    }
+                }
+            });
+        }
+
+        // Connexion SSH
+        
+        /**
+         * Synchroniser le serveur connecté vers Agent DevOps
+         */
+        async function syncServerToAgent(serverInfo) {
+            try {
+                const response = await fetch('/api/agent/servers/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        host: serverInfo.host,
+                        port: serverInfo.port || 22,
+                        username: serverInfo.username,
+                        password: serverInfo.password,
+                        name: `${serverInfo.username}@${serverInfo.host}`,
+                        description: 'Synchronisé automatiquement depuis Terminal SSH'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`✓ Serveur synchronisé: ${result.action} (ID: ${result.serverId})`);
+                    
+                    // Afficher une notification discrète
+                    const notification = document.createElement('div');
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 15px 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        z-index: 10000;
+                        font-size: 14px;
+                        animation: slideIn 0.3s ease-out;
+                    `;
+                    notification.innerHTML = `
+                        <i class="fas fa-sync-alt"></i> 
+                        Serveur synchronisé avec Agent DevOps
+                    `;
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.animation = 'slideOut 0.3s ease-in';
+                        setTimeout(() => notification.remove(), 300);
+                    }, 3000);
+                } else {
+                    console.warn('Échec de synchronisation du serveur:', result.error);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la synchronisation:', error);
+            }
+        }
+
+
+        async function connectSSH() {
+            const host = document.getElementById('ssh-host').value;
+            const port = document.getElementById('ssh-port').value;
+            const username = document.getElementById('ssh-username').value;
+            const password = document.getElementById('ssh-password').value;
+
+            if (!host || !username || !password) {
+                term.writeln('\x1b[1;31m✗ Erreur: Veuillez remplir tous les champs\x1b[0m');
+                return;
+            }
+
+            // Récupérer le token d'authentification
+            if (!authToken) {
+                authToken = localStorage.getItem('authToken');
+                if (!authToken) {
+                    term.writeln('\x1b[1;31m✗ Erreur: Non authentifié. Veuillez vous connecter.\x1b[0m');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                    return;
+                }
+            }
+
+            // Mettre à jour le statut
+            updateStatus('connecting', 'Connexion en cours...');
+            document.getElementById('connect-btn').disabled = true;
+
+            term.writeln('\x1b[1;36m→ Connexion à ' + host + ':' + port + ' en tant que ' + username + '...\x1b[0m');
+
+            // Créer la connexion WebSocket
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/terminal/ws`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                
+                // Authentifier avec JWT
+                ws.send(JSON.stringify({
+                    type: 'auth',
+                    token: authToken
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    
+                    if (message.type === 'auth_success') {
+                        // Auth réussie, maintenant connecter SSH
+                        ws.send(JSON.stringify({
+                            type: 'connect',
+                            serverConfig: {
+                                host: host,
+                                port: parseInt(port),
+                                username: username,
+                                password: password
+                            }
+                        }));
+                    } else if (message.type === 'connected') {
+                        connected = true;
+                        updateStatus('connected', `Connecté à ${host}`);
+                
+                // Synchroniser automatiquement le serveur avec Agent DevOps
+                syncServerToAgent({
+                    host: host,
+                    port: port,
+                    username: username,
+                    password: password
+                });
+                        
+                        // 🔧 NOUVEAU: Dispatcher l'événement pour l'Assistant AI
+                        window.dispatchEvent(new CustomEvent('serverContextChanged', {
+                            detail: {
+                                id: null, // Sera rempli par syncServerToAgent
+                                host: host,
+                                port: port,
+                                username: username,
+                                name: `${username}@${host}`,
+                                connected: true
+                            }
+                        }));
+                        console.log('📡 Event dispatched: serverContextChanged');
+                        
+                        document.getElementById('connect-btn').disabled = true;
+                        document.getElementById('disconnect-btn').disabled = false;
+                        document.getElementById('terminal-title').textContent = `${username}@${host}`;
+                        term.writeln('\x1b[1;32m✓ Connecté!\x1b[0m\n');
+                        
+                        // Envoyer la taille du terminal
+                        ws.send(JSON.stringify({
+                            type: 'resize',
+                            cols: term.cols,
+                            rows: term.rows
+                        }));
+                    } else if (message.type === 'data') {
+                        term.write(message.data);
+                    } else if (message.type === 'error') {
+                        term.writeln('\x1b[1;31m✗ Erreur: ' + message.message + '\x1b[0m');
+                        disconnectSSH();
+                    } else if (message.type === 'disconnected') {
+                        term.writeln('\n\x1b[1;33m→ ' + message.message + '\x1b[0m');
+                        disconnectSSH();
+                    }
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                term.writeln('\x1b[1;31m✗ Erreur de connexion WebSocket\x1b[0m');
+                disconnectSSH();
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed');
+                if (connected) {
+                    term.writeln('\n\x1b[1;33m→ Connexion fermée\x1b[0m');
+                }
+                disconnectSSH();
+            };
+        }
+
+        // Déconnexion SSH
+        function disconnectSSH() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'disconnect' }));
+                ws.close();
+            }
+            ws = null;
+            connected = false;
+            updateStatus('disconnected', 'Déconnecté');
+            document.getElementById('connect-btn').disabled = false;
+            document.getElementById('disconnect-btn').disabled = true;
+            document.getElementById('terminal-title').textContent = 'Terminal SSH';
+        }
+
+        // Mettre à jour le statut
+        function updateStatus(status, text) {
+            const indicator = document.querySelector('.status-dot');
+            indicator.className = 'status-dot status-' + status;
+            document.getElementById('status-text').textContent = text;
+        }
+
+        // Effacer le terminal
+        function clearTerminal() {
+            if (term) {
+                term.clear();
+            }
+        }
+
+        // Copier la sélection
+        function copySelection() {
+            if (term) {
+                const selection = term.getSelection();
+                if (selection) {
+                    navigator.clipboard.writeText(selection).then(() => {
+                        term.writeln('\n\x1b[1;32m✓ Copié dans le presse-papiers\x1b[0m');
+                    });
+                }
+            }
+        }
+
+        // Initialiser au chargement
+        document.addEventListener('DOMContentLoaded', () => {
+            initTerminal();
+        });
+
+        // Nettoyage à la fermeture
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                disconnectSSH();
+            }
+        });
+    </script>
+
+    <!-- PostMessage Communication with Parent Dashboard -->
+    <script src="/iframe-postmessage-code.js"></script>
+    <script>
+        // Override initializeApp for this page
+        function initializeApp() {
+            const token = getAuthToken();
+            console.log('✅ Terminal SSH: App initialized with token:', !!token);
+            
+            // Initialize terminal if token exists
+            if (token && !term) {
+                initTerminal();
+            }
+        }
+
+        // Override cleanupApp for this page
+        function cleanupApp() {
+            console.log('🧹 Terminal SSH: App cleaned up');
+            
+            // Disconnect SSH if connected
+            if (ws) {
+                disconnectSSH();
+            }
+            
+            // Clear terminal
+            if (term) {
+                term.clear();
+            }
+            
+            // Reset status
+            updateStatus('disconnected', 'Déconnecté');
+        }
+    </script>
+</body>
+</html>

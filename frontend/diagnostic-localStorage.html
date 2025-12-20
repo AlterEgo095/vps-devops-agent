@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>🔬 Diagnostic localStorage</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .box {
+            background: #2a2a2a;
+            border: 1px solid #00ff00;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+    </style>
+</head>
+<body>
+    <h1>🔬 Diagnostic localStorage - VPS DevOps Agent</h1>
+    
+    <div class="box">
+        <h2>📦 Contenu de localStorage :</h2>
+        <pre id="localStorage-content"></pre>
+    </div>
+    
+    <div class="box">
+        <h2>🔑 Token d'authentification :</h2>
+        <pre id="token-status"></pre>
+    </div>
+    
+    <div class="box">
+        <h2>👤 Utilisateur :</h2>
+        <pre id="user-status"></pre>
+    </div>
+    
+    <div class="box">
+        <h2>🧪 Test AuthGuard :</h2>
+        <pre id="authguard-status"></pre>
+    </div>
+    
+    <script>
+        // Afficher tout le localStorage
+        const localStorageDiv = document.getElementById('localStorage-content');
+        let allKeys = Object.keys(localStorage);
+        
+        if (allKeys.length === 0) {
+            localStorageDiv.innerHTML = '<span class="error">❌ localStorage est VIDE</span>';
+        } else {
+            localStorageDiv.innerHTML = '<span class="success">✅ localStorage contient ' + allKeys.length + ' clé(s) :</span>\n\n';
+            allKeys.forEach(key => {
+                let value = localStorage.getItem(key);
+                if (key === 'authToken') {
+                    value = value ? value.substring(0, 30) + '...' : 'null';
+                }
+                localStorageDiv.innerHTML += key + ' = ' + value + '\n';
+            });
+        }
+        
+        // Vérifier le token
+        const tokenDiv = document.getElementById('token-status');
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            tokenDiv.innerHTML = '<span class="success">✅ Token présent !</span>\n';
+            tokenDiv.innerHTML += 'Longueur: ' + token.length + ' caractères\n';
+            tokenDiv.innerHTML += 'Début: ' + token.substring(0, 30) + '...';
+        } else {
+            tokenDiv.innerHTML = '<span class="error">❌ AUCUN token trouvé dans localStorage.getItem(\'authToken\')</span>\n';
+            tokenDiv.innerHTML += '<span class="warning">⚠️  Vous devez vous connecter sur <a href="/dashboard.html" style="color:#00aaff;">/dashboard.html</a> d\'abord</span>';
+        }
+        
+        // Vérifier l'utilisateur
+        const userDiv = document.getElementById('user-status');
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                userDiv.innerHTML = '<span class="success">✅ Utilisateur présent :</span>\n';
+                userDiv.innerHTML += JSON.stringify(user, null, 2);
+            } catch (e) {
+                userDiv.innerHTML = '<span class="error">❌ Erreur de parsing user: ' + e.message + '</span>';
+            }
+        } else {
+            userDiv.innerHTML = '<span class="error">❌ Aucun utilisateur dans localStorage</span>';
+        }
+        
+        // Test AuthGuard
+        const authguardDiv = document.getElementById('authguard-status');
+        if (typeof AuthGuard !== 'undefined') {
+            authguardDiv.innerHTML = '<span class="success">✅ AuthGuard chargé</span>\n';
+            authguardDiv.innerHTML += 'Token via AuthGuard.getToken(): ' + (AuthGuard.getToken() ? 'Présent (' + AuthGuard.getToken().substring(0, 20) + '...)' : 'Absent') + '\n';
+            authguardDiv.innerHTML += 'isAuthenticated(): ' + AuthGuard.isAuthenticated() + '\n';
+            authguardDiv.innerHTML += 'State: ' + JSON.stringify(AuthGuard.state, null, 2);
+        } else {
+            authguardDiv.innerHTML = '<span class="error">❌ AuthGuard non chargé</span>';
+        }
+    </script>
+    
+    <script src="/auth-guard.js"></script>
+</body>
+</html>

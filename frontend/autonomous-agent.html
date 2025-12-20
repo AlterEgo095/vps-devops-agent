@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Autonome - VPS DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background-color: #10b981; color: white; }
+        .badge-warning { background-color: #f59e0b; color: white; }
+        .badge-danger { background-color: #ef4444; color: white; }
+        .badge-info { background-color: #3b82f6; color: white; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body class="bg-gray-100">
+    <script src="/iframe-detector.js"></script>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-robot text-purple-600 mr-2"></i>
+                        Agent Autonome DevOps
+                    </h1>
+                    <p class="text-gray-600 mt-1">Contrôlez et surveillez votre agent DevOps autonome</p>
+                </div>
+                <button onclick="handleRefresh()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-sync-alt mr-2"></i>Actualiser
+                </button>
+            </div>
+        </div>
+
+        <!-- Agent Status Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-heartbeat text-purple-600 mr-2"></i>
+                État de l'Agent
+            </h2>
+            <div id="agent-status">
+                <!-- Status will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="flex overflow-x-auto border-b">
+                <button onclick="switchTab('tasks')" class="tab-button active px-6 py-4 font-semibold" data-tab="tasks">
+                    <i class="fas fa-tasks mr-2"></i>Tâches
+                </button>
+                <button onclick="switchTab('new-task')" class="tab-button px-6 py-4 font-semibold" data-tab="new-task">
+                    <i class="fas fa-plus-circle mr-2"></i>Nouvelle Tâche
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Contents -->
+        
+        <!-- Tasks Tab -->
+        <div id="tab-tasks" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">
+                        <i class="fas fa-list text-purple-600 mr-2"></i>
+                        Liste des Tâches
+                    </h2>
+                </div>
+                <div id="tasks-list">
+                    <!-- Tasks will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- New Task Tab -->
+        <div id="tab-new-task" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-plus-circle text-purple-600 mr-2"></i>
+                    Créer une Nouvelle Tâche
+                </h2>
+                <form id="new-task-form" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">Titre de la tâche:</label>
+                        <input type="text" name="title" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                               placeholder="Ex: Déployer l'application sur le serveur de production">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">Description:</label>
+                        <textarea name="description" rows="4" required
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                                  placeholder="Décrivez la tâche en détail..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">Priorité:</label>
+                        <select name="priority" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                            <option value="low">Basse</option>
+                            <option value="medium" selected>Moyenne</option>
+                            <option value="high">Haute</option>
+                            <option value="critical">Critique</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">Type de tâche:</label>
+                        <select name="task_type" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                            <option value="deployment">Déploiement</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="monitoring">Surveillance</option>
+                            <option value="backup">Sauvegarde</option>
+                            <option value="security">Sécurité</option>
+                            <option value="other">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-gray-700 font-bold mb-2">Commandes (optionnel):</label>
+                        <textarea name="commands" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent font-mono text-sm"
+                                  placeholder="cd /path/to/project&#10;npm install&#10;npm run build"></textarea>
+                        <p class="text-sm text-gray-600 mt-1">Une commande par ligne</p>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="switchTab('tasks')" 
+                                class="px-6 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">
+                            Annuler
+                        </button>
+                        <button type="submit" 
+                                class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-paper-plane mr-2"></i>Créer la Tâche
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div id="task-details-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">
+                <i class="fas fa-info-circle text-purple-600 mr-2"></i>
+                Détails de la Tâche
+            </h3>
+            <div id="task-details-content">
+                <!-- Task details will be loaded here -->
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="closeTaskDetailsModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== TOKEN AUTHENTICATION ====================
+        let authToken = null;
+
+        // Listen for token from parent (dashboard)
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) {
+                console.warn('Received message from untrusted origin:', event.origin);
+                return;
+            }
+            
+            console.log('[AUTONOMOUS] Received postMessage:', event.data);
+            
+            const { type, token } = event.data;
+            if (type === 'AUTH_TOKEN' && token) {
+                console.log('[AUTONOMOUS] Setting authToken from postMessage');
+                localStorage.setItem('authToken', token);
+                authToken = token;
+                initializeAutonomousAgent();
+            }
+        });
+
+        // Get auth token from localStorage or memory
+        function getAuthToken() {
+            if (!authToken) {
+                authToken = localStorage.getItem('authToken');
+                console.log('[AUTONOMOUS] Retrieved authToken from localStorage:', authToken ? 'exists' : 'null');
+            }
+            return authToken;
+        }
+
+        // Check if token is available on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('[AUTONOMOUS] DOMContentLoaded - checking for token');
+            const token = getAuthToken();
+            if (token) {
+                console.log('[AUTONOMOUS] Token found in localStorage, initializing...');
+                authToken = token;
+                initializeAutonomousAgent();
+            } else {
+                console.log('[AUTONOMOUS] No token found, waiting for postMessage...');
+            }
+        });
+
+        // ==================== API CALLS ====================
+        async function apiCall(endpoint, options = {}) {
+            const token = getAuthToken();
+            if (!token) {
+                console.error('[AUTONOMOUS] No authentication token available');
+                throw new Error("No authentication token available");
+            }
+            
+            console.log(`[AUTONOMOUS] API Call: ${endpoint}`, options);
+            
+            const response = await fetch(`/api${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    ...options.headers
+                }
+            });
+            
+            console.log(`[AUTONOMOUS] API Response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[AUTONOMOUS] API Error:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log(`[AUTONOMOUS] API Data:`, data);
+            return data;
+        }
+
+        // ==================== INITIALIZATION ====================
+        function initializeAutonomousAgent() {
+            console.log('[AUTONOMOUS] Initializing Autonomous Agent...');
+            loadAgentStatus();
+            loadTasks();
+            
+            // Setup form handler
+            document.getElementById('new-task-form').addEventListener('submit', handleNewTask);
+            
+            // Auto-refresh status every 10 seconds
+            setInterval(loadAgentStatus, 10000);
+        }
+
+        // ==================== LOAD FUNCTIONS ====================
+        window.loadAgentStatus = async function() {
+            console.log('[AUTONOMOUS] Loading agent status...');
+            try {
+                const data = await apiCall('/autonomous/status');
+                if (data.success) {
+                    console.log('[AUTONOMOUS] Status loaded:', data);
+                    displayAgentStatus(data);
+                }
+            } catch (error) {
+                console.error('[AUTONOMOUS] Failed to load status:', error);
+                document.getElementById('agent-status').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement du statut: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.loadTasks = async function() {
+            console.log('[AUTONOMOUS] Loading tasks...');
+            try {
+                const data = await apiCall('/autonomous/tasks');
+                if (data.success && data.tasks) {
+                    console.log('[AUTONOMOUS] Tasks loaded:', data.tasks);
+                    displayTasks(data.tasks);
+                }
+            } catch (error) {
+                console.error('[AUTONOMOUS] Failed to load tasks:', error);
+                document.getElementById('tasks-list').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement des tâches: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ==================== DISPLAY FUNCTIONS ====================
+        function displayAgentStatus(data) {
+            const statusDiv = document.getElementById('agent-status');
+            const status = data.status || {};
+            
+            const isRunning = status.is_running;
+            const statusColor = isRunning ? 'green' : 'gray';
+            const statusIcon = isRunning ? 'fa-play-circle' : 'fa-stop-circle';
+            const statusText = isRunning ? 'En fonctionnement' : 'Arrêté';
+            
+            statusDiv.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gradient-to-br from-${statusColor}-50 to-${statusColor}-100 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">Statut</h3>
+                            <i class="fas ${statusIcon} text-4xl text-${statusColor}-600 ${isRunning ? 'pulse' : ''}"></i>
+                        </div>
+                        <div class="text-2xl font-bold text-${statusColor}-600 mb-2">
+                            ${statusText}
+                        </div>
+                        ${isRunning ? `
+                        <div class="text-sm text-gray-600">
+                            Depuis: ${new Date(status.started_at).toLocaleString('fr-FR')}
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800">Statistiques</h3>
+                            <i class="fas fa-chart-line text-4xl text-blue-600"></i>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Tâches en cours:</span>
+                                <span class="font-bold text-blue-600">${status.active_tasks || 0}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Tâches complétées:</span>
+                                <span class="font-bold text-green-600">${status.completed_tasks || 0}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Tâches échouées:</span>
+                                <span class="font-bold text-red-600">${status.failed_tasks || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4">
+                    ${!isRunning ? `
+                    <button onclick="handleStartAgent()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold">
+                        <i class="fas fa-play mr-2"></i>Démarrer l'Agent
+                    </button>
+                    ` : `
+                    <button onclick="handleStopAgent()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold">
+                        <i class="fas fa-stop mr-2"></i>Arrêter l'Agent
+                    </button>
+                    `}
+                </div>
+            `;
+        }
+
+        function displayTasks(tasks) {
+            const listDiv = document.getElementById('tasks-list');
+            
+            if (!tasks || tasks.length === 0) {
+                listDiv.innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-inbox text-6xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600 mb-4">Aucune tâche</p>
+                        <button onclick="switchTab('new-task')" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg">
+                            <i class="fas fa-plus-circle mr-2"></i>Créer une Tâche
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group tasks by status
+            const pending = tasks.filter(t => t.status === 'pending');
+            const running = tasks.filter(t => t.status === 'running');
+            const completed = tasks.filter(t => t.status === 'completed');
+            const failed = tasks.filter(t => t.status === 'failed');
+            
+            listDiv.innerHTML = `
+                ${running.length > 0 ? `
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
+                        En cours (${running.length})
+                    </h3>
+                    <div class="space-y-3">
+                        ${running.map(task => renderTaskCard(task)).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${pending.length > 0 ? `
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-clock text-yellow-600 mr-2"></i>
+                        En attente (${pending.length})
+                    </h3>
+                    <div class="space-y-3">
+                        ${pending.map(task => renderTaskCard(task)).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${completed.length > 0 ? `
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                        Complétées (${completed.length})
+                    </h3>
+                    <div class="space-y-3">
+                        ${completed.map(task => renderTaskCard(task)).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${failed.length > 0 ? `
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-exclamation-circle text-red-600 mr-2"></i>
+                        Échouées (${failed.length})
+                    </h3>
+                    <div class="space-y-3">
+                        ${failed.map(task => renderTaskCard(task)).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function renderTaskCard(task) {
+            const priorityColors = {
+                low: 'bg-gray-100 text-gray-800',
+                medium: 'bg-blue-100 text-blue-800',
+                high: 'bg-orange-100 text-orange-800',
+                critical: 'bg-red-100 text-red-800'
+            };
+            
+            const statusColors = {
+                pending: 'badge-warning',
+                running: 'badge-info',
+                completed: 'badge-success',
+                failed: 'badge-danger'
+            };
+            
+            const statusIcons = {
+                pending: 'fa-clock',
+                running: 'fa-spinner fa-spin',
+                completed: 'fa-check-circle',
+                failed: 'fa-exclamation-circle'
+            };
+            
+            return `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 mb-1">${task.title}</h4>
+                            <p class="text-sm text-gray-600 mb-2">${task.description || 'Pas de description'}</p>
+                        </div>
+                        <div class="flex flex-col items-end space-y-2">
+                            <span class="badge ${statusColors[task.status]}">
+                                <i class="fas ${statusIcons[task.status]} mr-1"></i>
+                                ${task.status}
+                            </span>
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${priorityColors[task.priority]}">
+                                ${task.priority}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between text-sm text-gray-600">
+                        <div>
+                            <i class="fas fa-calendar-alt mr-1"></i>
+                            ${new Date(task.created_at).toLocaleString('fr-FR')}
+                        </div>
+                        <button onclick="showTaskDetails(${task.id})" class="text-purple-600 hover:text-purple-700 font-semibold">
+                            Détails <i class="fas fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                    
+                    ${task.progress !== undefined ? `
+                    <div class="mt-3">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>Progression</span>
+                            <span>${task.progress}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-purple-600 h-2 rounded-full transition-all" style="width: ${task.progress}%"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // ==================== ACTION HANDLERS ====================
+        async function handleStartAgent() {
+            try {
+                const data = await apiCall('/autonomous/start', {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    alert('Agent démarré avec succès!');
+                    loadAgentStatus();
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec du démarrage'));
+                }
+            } catch (error) {
+                console.error('Start error:', error);
+                alert('Erreur lors du démarrage: ' + error.message);
+            }
+        }
+
+        async function handleStopAgent() {
+            if (!confirm('Êtes-vous sûr de vouloir arrêter l\'agent?')) {
+                return;
+            }
+            
+            try {
+                const data = await apiCall('/autonomous/stop', {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    alert('Agent arrêté avec succès.');
+                    loadAgentStatus();
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec de l\'arrêt'));
+                }
+            } catch (error) {
+                console.error('Stop error:', error);
+                alert('Erreur lors de l\'arrêt: ' + error.message);
+            }
+        }
+
+        async function handleNewTask(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const taskData = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                priority: formData.get('priority'),
+                task_type: formData.get('task_type'),
+                commands: formData.get('commands') ? formData.get('commands').split('\n').filter(c => c.trim()) : []
+            };
+            
+            try {
+                const data = await apiCall('/autonomous/task', {
+                    method: 'POST',
+                    body: JSON.stringify(taskData)
+                });
+                
+                if (data.success) {
+                    alert('Tâche créée avec succès!');
+                    e.target.reset();
+                    switchTab('tasks');
+                    loadTasks();
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec de la création de la tâche'));
+                }
+            } catch (error) {
+                console.error('Create task error:', error);
+                alert('Erreur lors de la création: ' + error.message);
+            }
+        }
+
+        async function showTaskDetails(taskId) {
+            // This would fetch detailed task info including logs
+            // For now, just show a message
+            document.getElementById('task-details-content').innerHTML = `
+                <p class="text-gray-600">Chargement des détails de la tâche #${taskId}...</p>
+            `;
+            document.getElementById('task-details-modal').classList.add('show');
+            
+            // In a real implementation, you would fetch task details here
+            // For now, we'll just display the task ID
+        }
+
+        function closeTaskDetailsModal() {
+            document.getElementById('task-details-modal').classList.remove('show');
+        }
+
+        // ==================== TAB SWITCHING ====================
+        function switchTab(tabName) {
+            console.log('[AUTONOMOUS] Switching to tab:', tabName);
+            
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            
+            // Load data for the tab
+            if (tabName === 'tasks') {
+                loadTasks();
+            }
+        }
+
+        function handleRefresh() {
+            loadAgentStatus();
+            loadTasks();
+        }
+    </script>
+</body>
+</html>

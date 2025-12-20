@@ -1,0 +1,95 @@
+/**
+ * IFRAME EMBED STYLES - Version 4.0
+ * CORRECTIF: Préserve les tabs fonctionnels de l'Agent DevOps
+ * Masque UNIQUEMENT le header redondant du dashboard
+ */
+
+/* ========================================
+   RÈGLES SPÉCIFIQUES POUR AGENT DEVOPS
+   ======================================== */
+
+/* Agent DevOps : NE PAS cacher les tabs fonctionnels */
+body.in-iframe #tabs {
+    display: flex !important; /* FORCE l'affichage des tabs */
+}
+
+/* Agent DevOps : Cacher SEULEMENT le header du dashboard */
+body.in-iframe > header:first-of-type {
+    display: none !important;
+}
+
+/* ========================================
+   RÈGLES GÉNÉRIQUES POUR AUTRES PAGES
+   ======================================== */
+
+/* Masquer les headers de navigation principale (sauf Agent DevOps) */
+body.in-iframe > header.main-header,
+body.in-iframe > header.site-header,
+body.in-iframe > nav.main-nav {
+    display: none !important;
+}
+
+/* Masquer les sidebars de navigation (pas les panels fonctionnels) */
+body.in-iframe > aside.sidebar,
+body.in-iframe > aside.nav-sidebar,
+body.in-iframe > .app-sidebar {
+    display: none !important;
+}
+
+/* Masquer breadcrumbs globaux uniquement */
+body.in-iframe > .breadcrumbs:first-child,
+body.in-iframe > header .breadcrumbs {
+    display: none !important;
+}
+
+/* ========================================
+   AJUSTEMENTS LAYOUT
+   ======================================== */
+
+/* Ajuster le contenu pour occuper l'espace */
+body.in-iframe {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* S'assurer que le contenu principal utilise tout l'espace */
+body.in-iframe > main,
+body.in-iframe > .main-content,
+body.in-iframe > .content-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* ========================================
+   PRÉSERVATION DES ÉLÉMENTS FONCTIONNELS
+   ======================================== */
+
+/* Préserver les headers fonctionnels */
+body.in-iframe .page-header,
+body.in-iframe .section-header,
+body.in-iframe .widget-header,
+body.in-iframe .card-header {
+    display: block !important;
+}
+
+/* Préserver les panels et sidebars fonctionnels */
+body.in-iframe .settings-panel,
+body.in-iframe .filter-panel,
+body.in-iframe .tool-panel {
+    display: block !important;
+}
+
+/* Préserver TOUS les tabs de contenu */
+body.in-iframe .content-tabs,
+body.in-iframe .panel-tabs,
+body.in-iframe .tab-button,
+body.in-iframe nav[id='tabs'] {
+    display: block !important;
+}
+
+/* Forcer l'affichage des navigations internes */
+body.in-iframe nav.flex {
+    display: flex !important;
+}

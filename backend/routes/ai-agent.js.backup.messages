@@ -1,0 +1,950 @@
+/**
+ * Routes API pour l'Agent IA DevOps
+ * Gestion des conversations, messages, et actions de l'agent
+ */
+
+import express from 'express';
+import { authenticateToken } from '../middleware/auth.js';
+import { db } from '../services/database-sqlite.js';
+import * as aiAgent from '../services/ai-agent.js';
+import * as openaiProvider from '../services/openai-provider.js';
+import * as agentExecutor from '../services/agent-executor.js';
+import * as fileManager from '../services/file-manager.js';
+import { analyzeCode, getAvailableAnalyzers } from '../services/analyzers/index.js';
+import crypto from 'crypto';
+
+// Fonction de déchiffrement universelle
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+    if (!encryptedCredentials) return '';
+    
+    if (encryptedCredentials.includes(':')) {
+        try {
+            const [ivHex, encryptedHex] = encryptedCredentials.split(':');
+            const iv = Buffer.from(ivHex, 'hex');
+            const key = crypto.scryptSync(secret, 'salt', 32);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+            
+            let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+            decrypted += decipher.final('utf8');
+            return decrypted;
+        } catch (error) {
+            console.error('Erreur déchiffrement AES-256-CBC:', error.message);
+            return Buffer.from(encryptedCredentials, 'base64').toString();
+        }
+    } else {
+        return Buffer.from(encryptedCredentials, 'base64').toString();
+    }
+}
+
+const router = express.Router();
+
+// ============================================
+// ROUTES PUBLIQUES (sans authentification)
+// ============================================
+
+/**
+ * GET /api/ai/test
+ * Teste la connexion à OpenAI
+ */
+router.get('/test', async (req, res) => {
+    try {
+        // Test simple avec OpenAI
+        const testMessage = [{ role: 'user', content: 'Hello, are you ready?' }];
+        const response = await openaiProvider.sendToOpenAI(testMessage, 'devops_agent');
+        
+        res.json({
+            success: true,
+            message: 'OpenAI connection successful',
+            response: response.message,
+            model: process.env.OPENAI_MODEL || 'gpt-4',
+            autonomyLevel: process.env.AI_AGENT_AUTONOMY_LEVEL || 'smart'
+        });
+    } catch (error) {
+        console.error('OpenAI test failed:', error);
+        res.status(500).json({
+            success: false,
+            error: 'OpenAI connection failed',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/ai/config
+ * Récupère la configuration de l'Agent IA
+ */
+router.get('/config', async (req, res) => {
+    try {
+        const config = db.prepare('SELECT * FROM ai_agent_config').all();
+        
+        const configObject = {};
+        config.forEach(item => {
+            configObject[item.key] = item.value;
+        });
+        
+        res.json({
+            success: true,
+            config: configObject
+        });
+    } catch (error) {
+        console.error('Error fetching config:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch configuration'
+        });
+    }
+});
+
+/**
+ * GET /api/ai/analyzers
+ * Liste les analyseurs de code disponibles
+ */
+router.get('/analyzers', async (req, res) => {
+    try {
+        const analyzers = getAvailableAnalyzers();
+        
+        res.json({
+            success: true,
+            analyzers
+        });
+    } catch (error) {
+        console.error('Error fetching analyzers:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch analyzers'
+        });
+    }
+});
+
+// ============================================
+// APPLIQUER L'AUTHENTIFICATION À TOUTES LES ROUTES SUIVANTES
+// ============================================
+// router.use(authenticateToken); // Temporairement désactivé pour l'Agent IA
+
+// ============================================
+// GESTION DES CONVERSATIONS
+// ============================================
+
+/**
+ * GET /api/ai/conversations
+ * Récupère la liste des conversations de l'utilisateur
+ */
+router.get('/conversations', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { status = 'active', limit = 50 } = req.query;
+        
+        const conversations = db.prepare(`
+            SELECT * FROM v_ai_conversations_summary
+            WHERE user_id = ? AND status = ?
+            ORDER BY last_message_at DESC
+            LIMIT ?
+        `).all(userId, status, limit);
+        
+        res.json({
+            success: true,
+            data: conversations,
+            count: conversations.length
+        });
+    } catch (error) {
+        console.error('Error fetching conversations:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch conversations'
+        });
+    }
+});
+
+/**
+ * GET /api/ai/conversations/:id
+ * Récupère une conversation spécifique avec tous ses messages
+ */
+router.get('/conversations/:id', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const conversationId = req.params.id;
+        
+        // Vérifier que la conversation appartient à l'utilisateur
+        const conversation = db.prepare(`
+            SELECT c.*, s.name as server_name, s.host as server_host
+            FROM ai_conversations c
+            LEFT JOIN servers s ON c.server_id = s.id
+            WHERE c.id = ? AND c.user_id = ?
+        `).get(conversationId, userId);
+        
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                error: 'Conversation not found'
+            });
+        }
+        
+        // Récupérer tous les messages
+        const messages = db.prepare(`
+            SELECT 
+                id, role, content, actions, context_snapshot,
+                token_count, created_at
+            FROM ai_messages
+            WHERE conversation_id = ?
+            ORDER BY created_at ASC
+        `).all(conversationId);
+        
+        // Parser les champs JSON
+        messages.forEach(msg => {
+            if (msg.actions) msg.actions = JSON.parse(msg.actions);
+            if (msg.context_snapshot) msg.context_snapshot = JSON.parse(msg.context_snapshot);
+        });
+        
+        if (conversation.context) {
+            conversation.context = JSON.parse(conversation.context);
+        }
+        
+        res.json({
+            success: true,
+            data: {
+                conversation,
+                messages
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching conversation:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch conversation'
+        });
+    }
+});
+
+/**
+ * POST /api/ai/conversations
+ * Crée une nouvelle conversation
+ */
+router.post('/conversations', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { serverId, context } = req.body;
+        
+        const conversation = aiAgent.createConversation(userId, serverId);
+        
+        // Mettre à jour le contexte si fourni
+        if (context) {
+            db.prepare(`
+                UPDATE ai_conversations
+                SET context = ?
+                WHERE id = ?
+            `).run(JSON.stringify(context), conversation.id);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Conversation created',
+            data: conversation
+        });
+    } catch (error) {
+        console.error('Error creating conversation:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to create conversation'
+        });
+    }
+});
+
+/**
+ * DELETE /api/ai/conversations/:id
+ * Supprime (archive) une conversation
+ */
+router.delete('/conversations/:id', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const conversationId = req.params.id;
+        
+        // Vérifier que la conversation appartient à l'utilisateur
+        const conversation = db.prepare(`
+            SELECT id FROM ai_conversations
+            WHERE id = ? AND user_id = ?
+        `).get(conversationId, userId);
+        
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                error: 'Conversation not found'
+            });
+        }
+        
+        // Archiver la conversation (soft delete)
+        db.prepare(`
+            UPDATE ai_conversations
+            SET status = 'deleted', ended_at = datetime('now')
+            WHERE id = ?
+        `).run(conversationId);
+        
+        res.json({
+            success: true,
+            message: 'Conversation deleted'
+        });
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete conversation'
+        });
+    }
+});
+
+// ============================================
+// CHAT & MESSAGES
+// ============================================
+
+/**
+ * POST /api/ai/chat
+ * Envoie un message à l'agent IA
+ */
+router.post('/chat', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { conversationId, message, context } = req.body;
+        
+        if (!conversationId || !message) {
+            return res.status(400).json({
+                success: false,
+                error: 'conversationId and message are required'
+            });
+        }
+        
+        // Vérifier que la conversation appartient à l'utilisateur
+        const conversation = db.prepare(`
+            SELECT * FROM ai_conversations
+            WHERE id = ? AND user_id = ?
+        `).get(conversationId, userId);
+        
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                error: 'Conversation not found'
+            });
+        }
+        
+        // Traiter le message avec l'agent IA
+        const result = await aiAgent.processMessage(conversationId, message, context);
+        
+        res.json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        console.error('Error processing chat message:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to process message',
+            details: error.message
+        });
+    }
+});
+
+// ============================================
+// ACTIONS
+// ============================================
+
+/**
+ * GET /api/ai/actions/pending
+ * Récupère les actions en attente de confirmation
+ */
+router.get('/actions/pending', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        
+        const pendingActions = db.prepare(`
+            SELECT * FROM v_pending_confirmations
+            WHERE user_id = ?
+            ORDER BY executed_at DESC
+            LIMIT 50
+        `).all(userId);
+        
+        // Parser les champs JSON
+        pendingActions.forEach(action => {
+            if (action.action_params) {
+                action.action_params = JSON.parse(action.action_params);
+            }
+        });
+        
+        res.json({
+            success: true,
+            data: pendingActions,
+            count: pendingActions.length
+        });
+    } catch (error) {
+        console.error('Error fetching pending actions:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch pending actions'
+        });
+    }
+});
+
+/**
+ * POST /api/ai/actions/:id/confirm
+ * Confirme l'exécution d'une action
+ */
+router.post('/actions/:id/confirm', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const actionId = req.params.id;
+        const { confirmed } = req.body;
+        
+        if (typeof confirmed !== 'boolean') {
+            return res.status(400).json({
+                success: false,
+                error: 'confirmed (boolean) is required'
+            });
+        }
+        
+        // Récupérer l'action
+        const action = db.prepare(`
+            SELECT a.*, c.user_id, c.server_id
+            FROM ai_actions a
+            INNER JOIN ai_conversations c ON a.conversation_id = c.id
+            WHERE a.id = ? AND c.user_id = ?
+        `).get(actionId, userId);
+        
+        if (!action) {
+            return res.status(404).json({
+                success: false,
+                error: 'Action not found'
+            });
+        }
+        
+        if (!confirmed) {
+            // Annuler l'action
+            db.prepare(`
+                UPDATE ai_actions
+                SET status = 'cancelled', confirmed_by_user = 0, confirmed_at = datetime('now')
+                WHERE id = ?
+            `).run(actionId);
+            
+            return res.json({
+                success: true,
+                message: 'Action cancelled'
+            });
+        }
+        
+        // Confirmer et exécuter l'action
+        db.prepare(`
+            UPDATE ai_actions
+            SET confirmed_by_user = 1, confirmed_at = datetime('now'), status = 'executing'
+            WHERE id = ?
+        `).run(actionId);
+        
+        // Récupérer le serveur
+        const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(action.server_id);
+        
+        if (!server) {
+            return res.status(404).json({
+                success: false,
+                error: 'Server not found'
+            });
+        }
+        
+        // Décrypter les credentials
+        server.password = Buffer.from(server.encrypted_credentials, 'base64').toString();
+        
+        // Exécuter l'action
+        const actionData = JSON.parse(action.action_params);
+        const context = { server };
+        const result = await aiAgent.executeAction(actionId, actionData, context);
+        
+        res.json({
+            success: true,
+            message: 'Action executed',
+            data: result
+        });
+    } catch (error) {
+        console.error('Error executing action:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to execute action',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * GET /api/ai/actions/history
+ * Récupère l'historique des actions exécutées
+ */
+router.get('/actions/history', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { limit = 100, conversationId } = req.query;
+        
+        let query = `
+            SELECT 
+                a.id, a.conversation_id, a.action_type, a.action_params,
+                a.risk_level, a.status, a.result, a.error_message,
+                a.executed_at, a.duration_ms,
+                c.title as conversation_title,
+                s.name as server_name
+            FROM ai_actions a
+            INNER JOIN ai_conversations c ON a.conversation_id = c.id
+            LEFT JOIN servers s ON c.server_id = s.id
+            WHERE c.user_id = ?
+        `;
+        
+        const params = [userId];
+        
+        if (conversationId) {
+            query += ' AND a.conversation_id = ?';
+            params.push(conversationId);
+        }
+        
+        query += ' ORDER BY a.executed_at DESC LIMIT ?';
+        params.push(limit);
+        
+        const actions = db.prepare(query).all(...params);
+        
+        // Parser les champs JSON
+        actions.forEach(action => {
+            if (action.action_params) action.action_params = JSON.parse(action.action_params);
+            if (action.result) action.result = JSON.parse(action.result);
+        });
+        
+        res.json({
+            success: true,
+            data: actions,
+            count: actions.length
+        });
+    } catch (error) {
+        console.error('Error fetching action history:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch action history'
+        });
+    }
+});
+
+// ============================================
+// FICHIERS & MODIFICATIONS
+// ============================================
+
+/**
+ * GET /api/ai/files/modifications
+ * Récupère l'historique des modifications de fichiers
+ */
+router.get('/files/modifications', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { limit = 50, serverId } = req.query;
+        
+        let query = `
+            SELECT 
+                fm.id, fm.file_path, fm.operation, fm.backup_path,
+                fm.can_rollback, fm.rolled_back, fm.modified_at,
+                s.name as server_name,
+                c.title as conversation_title
+            FROM file_modifications fm
+            INNER JOIN servers s ON fm.server_id = s.id
+            LEFT JOIN ai_conversations c ON fm.conversation_id = c.id
+            WHERE c.user_id = ?
+        `;
+        
+        const params = [userId];
+        
+        if (serverId) {
+            query += ' AND fm.server_id = ?';
+            params.push(serverId);
+        }
+        
+        query += ' ORDER BY fm.modified_at DESC LIMIT ?';
+        params.push(limit);
+        
+        const modifications = db.prepare(query).all(...params);
+        
+        res.json({
+            success: true,
+            data: modifications,
+            count: modifications.length
+        });
+    } catch (error) {
+        console.error('Error fetching file modifications:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch file modifications'
+        });
+    }
+});
+
+/**
+ * POST /api/ai/files/rollback/:id
+ * Restaure un fichier à partir d'un backup
+ */
+router.post('/files/rollback/:id', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const modificationId = req.params.id;
+        
+        // Récupérer la modification
+        const modification = db.prepare(`
+            SELECT fm.*, s.*
+            FROM file_modifications fm
+            INNER JOIN servers s ON fm.server_id = s.id
+            INNER JOIN ai_conversations c ON fm.conversation_id = c.id
+            WHERE fm.id = ? AND c.user_id = ? AND fm.can_rollback = 1 AND fm.rolled_back = 0
+        `).get(modificationId, userId);
+        
+        if (!modification) {
+            return res.status(404).json({
+                success: false,
+                error: 'Modification not found or cannot be rolled back'
+            });
+        }
+        
+        // Décrypter les credentials
+        modification.password = Buffer.from(modification.encrypted_credentials, 'base64').toString();
+        
+        // Restaurer le fichier
+        const result = await fileManager.restoreBackup(
+            modification,
+            modification.backup_path,
+            modification.file_path
+        );
+        
+        if (result.success) {
+            // Marquer comme rolled back
+            db.prepare(`
+                UPDATE file_modifications
+                SET rolled_back = 1, rolled_back_at = datetime('now')
+                WHERE id = ?
+            `).run(modificationId);
+        }
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 'File restored successfully' : 'Failed to restore file',
+            data: result
+        });
+    } catch (error) {
+        console.error('Error rolling back file:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to rollback file',
+            details: error.message
+        });
+    }
+});
+
+// ============================================
+// ANALYSE DE CODE
+// ============================================
+
+/**
+ * POST /api/ai/analyze
+ * Analyse un fichier ou projet avec les analyseurs de code
+ */
+router.post('/analyze', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { serverId, path, forceAnalyzer } = req.body;
+        
+        if (!serverId || !path) {
+            return res.status(400).json({
+                success: false,
+                error: 'serverId and path are required'
+            });
+        }
+        
+        // Récupérer le serveur
+        const server = db.prepare(`
+            SELECT * FROM servers
+            WHERE id = ? AND user_id = ?
+        `).get(serverId, userId);
+        
+        if (!server) {
+            return res.status(404).json({
+                success: false,
+                error: 'Server not found'
+            });
+        }
+        
+        // Décrypter les credentials
+        server.password = Buffer.from(server.encrypted_credentials, 'base64').toString();
+        
+        // Exécuter l'analyse
+        const result = await analyzeCode(server, path, { forceAnalyzer });
+        
+        res.json({
+            success: result.success,
+            data: result
+        });
+    } catch (error) {
+        console.error('Error analyzing code:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to analyze code',
+            details: error.message
+        });
+    }
+});
+
+
+// ============================================
+// PHASE 3: AGENT DEVOPS AUTONOME
+// ============================================
+
+/**
+ * POST /api/ai/agent/analyze-request
+ * Analyser une demande utilisateur et générer un plan d'action
+ */
+router.post('/agent/analyze-request', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { request, serverId, context } = req.body;
+        
+        if (!request) {
+            return res.status(400).json({
+                success: false,
+                error: 'request is required'
+            });
+        }
+        
+        // Enrichir le contexte avec les infos du serveur si fourni
+        let enrichedContext = { ...context };
+        if (serverId) {
+            const server = db.prepare(`
+                SELECT * FROM servers WHERE id = ? AND user_id = ?
+            `).get(serverId, userId);
+            
+            if (server) {
+                enrichedContext.server = {
+                    name: server.name,
+                    host: server.host,
+                    port: server.port,
+                    username: server.username
+                };
+            }
+        }
+        
+        // Analyser la demande et générer le plan
+        const result = await agentExecutor.analyzeRequest(request, enrichedContext);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('Error analyzing request:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to analyze request',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/ai/agent/execute-command
+ * Exécuter une commande SSH unique
+ */
+router.post('/agent/execute-command', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { serverId, command } = req.body;
+        
+        if (!serverId || !command) {
+            return res.status(400).json({
+                success: false,
+                error: 'serverId and command are required'
+            });
+        }
+        
+        // Récupérer le serveur
+        const server = db.prepare(`
+            SELECT * FROM servers WHERE id = ? AND user_id = ?
+        `).get(serverId, userId);
+        
+        if (!server) {
+            return res.status(404).json({
+                success: false,
+                error: 'Server not found'
+            });
+        }
+        
+        // Classifier le risque
+        const risk = agentExecutor.classifyRisk(command);
+        
+        // Décrypter les credentials
+        const serverConfig = {
+            host: server.host,
+            port: server.port || 22,
+            username: server.username,
+            password: decryptPassword(server.encrypted_credentials)
+        };
+        
+        // Exécuter la commande
+        const result = await agentExecutor.executeCommand(serverConfig, command);
+        
+        // Enregistrer l'action dans la base de données
+        db.prepare(`
+            INSERT INTO ai_actions (
+                conversation_id, action_type, command, risk_level, 
+                status, output, error, executed_at, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `).run(
+            null,
+            'execute_command',
+            command,
+            risk.level,
+            result.success ? 'completed' : 'failed',
+            result.output ? result.output.substring(0, 5000) : null,
+            result.error || null
+        );
+        
+        res.json({
+            success: result.success,
+            command: command,
+            risk: risk,
+            result: result
+        });
+    } catch (error) {
+        console.error('Error executing command:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to execute command',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/ai/agent/execute-plan
+ * Exécuter un plan d'action complet
+ */
+router.post('/agent/execute-plan', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { serverId, plan } = req.body;
+        
+        if (!serverId || !plan || !plan.steps) {
+            return res.status(400).json({
+                success: false,
+                error: 'serverId and plan with steps are required'
+            });
+        }
+        
+        // Récupérer le serveur
+        const server = db.prepare(`
+            SELECT * FROM servers WHERE id = ? AND user_id = ?
+        `).get(serverId, userId);
+        
+        if (!server) {
+            return res.status(404).json({
+                success: false,
+                error: 'Server not found'
+            });
+        }
+        
+        // Décrypter les credentials
+        const serverConfig = {
+            host: server.host,
+            port: server.port || 22,
+            username: server.username,
+            password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+        };
+        
+        // Exécuter le plan
+        const result = await agentExecutor.executePlan(plan, serverConfig, {
+            autoExecuteSafe: true
+        });
+        
+        res.json({
+            success: result.success,
+            result: result
+        });
+    } catch (error) {
+        console.error('Error executing plan:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to execute plan',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/ai/agent/analyze-infrastructure
+ * Analyser l'infrastructure d'un serveur
+ */
+router.post('/agent/analyze-infrastructure', async (req, res) => {
+    try {
+        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const { serverId } = req.body;
+        
+        if (!serverId) {
+            return res.status(400).json({
+                success: false,
+                error: 'serverId is required'
+            });
+        }
+        
+        // Récupérer le serveur
+        const server = db.prepare(`
+            SELECT * FROM servers WHERE id = ? AND user_id = ?
+        `).get(serverId, userId);
+        
+        if (!server) {
+            return res.status(404).json({
+                success: false,
+                error: 'Server not found'
+            });
+        }
+        
+        // Décrypter les credentials
+        const serverConfig = {
+            host: server.host,
+            port: server.port || 22,
+            username: server.username,
+            password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+        };
+        
+        // Analyser l'infrastructure
+        const result = await agentExecutor.analyzeInfrastructure(serverConfig);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('Error analyzing infrastructure:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to analyze infrastructure',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/ai/agent/classify-risk
+ * Classifier le niveau de risque d'une commande
+ */
+router.post('/agent/classify-risk', async (req, res) => {
+    try {
+        const { command } = req.body;
+        
+        if (!command) {
+            return res.status(400).json({
+                success: false,
+                error: 'command is required'
+            });
+        }
+        
+        const risk = agentExecutor.classifyRisk(command);
+        
+        res.json({
+            success: true,
+            command: command,
+            risk: risk
+        });
+    } catch (error) {
+        console.error('Error classifying risk:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to classify risk',
+            details: error.message
+        });
+    }
+});
+
+export default router;

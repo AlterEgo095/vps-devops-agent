@@ -1,0 +1,95 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+backend/database.sqlite
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# PM2
+.pm2/
+pm2.json
+
+# Runtime data
+lib-cov
+coverage/
+.nyc_output/
+
+# Tests
+tests/__pycache__/
+.pytest_cache/
+*.cover
+*.py,cover
+.hypothesis/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Backups
+*.backup
+*.bak
+*.old
+*.tar.gz
+*.zip
+backups/
+.archives-backups-*/
+.archives-old-*/
+
+# Security
+*.pem
+*.key
+*.crt
+*.cer
+.git-credentials
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation (keep committed)
+!docs/
+
+# Configuration backups
+*.backup-*
+.env.backup-*

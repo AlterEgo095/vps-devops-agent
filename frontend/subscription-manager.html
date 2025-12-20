@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Abonnements - VPS DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-success { background-color: #10b981; color: white; }
+        .badge-warning { background-color: #f59e0b; color: white; }
+        .badge-danger { background-color: #ef4444; color: white; }
+        .badge-info { background-color: #3b82f6; color: white; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="/iframe-styles.css">
+</head>
+<body class="bg-gray-100">
+    <script src="/iframe-detector.js"></script>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        <i class="fas fa-credit-card text-purple-600 mr-2"></i>
+                        Gestion des Abonnements
+                    </h1>
+                    <p class="text-gray-600 mt-1">Gérez vos abonnements et consultez votre utilisation</p>
+                </div>
+                <button onclick="handleRefresh()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-sync-alt mr-2"></i>Actualiser
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="bg-white rounded-lg shadow-lg mb-6">
+            <div class="flex overflow-x-auto border-b">
+                <button onclick="switchTab('plans')" class="tab-button active px-6 py-4 font-semibold" data-tab="plans">
+                    <i class="fas fa-box mr-2"></i>Plans Disponibles
+                </button>
+                <button onclick="switchTab('status')" class="tab-button px-6 py-4 font-semibold" data-tab="status">
+                    <i class="fas fa-info-circle mr-2"></i>Mon Abonnement
+                </button>
+                <button onclick="switchTab('usage')" class="tab-button px-6 py-4 font-semibold" data-tab="usage">
+                    <i class="fas fa-chart-bar mr-2"></i>Utilisation
+                </button>
+                <button onclick="switchTab('history')" class="tab-button px-6 py-4 font-semibold" data-tab="history">
+                    <i class="fas fa-history mr-2"></i>Historique
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Contents -->
+        
+        <!-- Plans Tab -->
+        <div id="tab-plans" class="tab-content">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">
+                        <i class="fas fa-box text-purple-600 mr-2"></i>
+                        Plans d'Abonnement Disponibles
+                    </h2>
+                </div>
+                <div id="plans-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Plans will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Tab -->
+        <div id="tab-status" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-info-circle text-purple-600 mr-2"></i>
+                    Mon Abonnement Actuel
+                </h2>
+                <div id="status-content">
+                    <!-- Status will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Tab -->
+        <div id="tab-usage" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
+                    Utilisation des Ressources
+                </h2>
+                <div id="usage-content">
+                    <!-- Usage will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="tab-history" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-history text-purple-600 mr-2"></i>
+                    Historique des Abonnements
+                </h2>
+                <div id="history-content">
+                    <!-- History will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscribe Modal -->
+    <div id="subscribe-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">
+                <i class="fas fa-credit-card text-purple-600 mr-2"></i>
+                Souscrire à un Plan
+            </h3>
+            <form id="subscribe-form">
+                <input type="hidden" id="subscribe-plan-id" name="plan_id">
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Plan sélectionné:</label>
+                    <div id="subscribe-plan-name" class="text-lg font-semibold text-purple-600"></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Prix:</label>
+                    <div id="subscribe-plan-price" class="text-2xl font-bold text-gray-800"></div>
+                </div>
+
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button type="button" onclick="closeSubscribeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        <i class="fas fa-check mr-2"></i>Confirmer l'abonnement
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div id="upgrade-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">
+                <i class="fas fa-arrow-up text-green-600 mr-2"></i>
+                Changer de Plan
+            </h3>
+            <form id="upgrade-form">
+                <input type="hidden" id="upgrade-plan-id" name="new_plan_id">
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Nouveau plan:</label>
+                    <div id="upgrade-plan-name" class="text-lg font-semibold text-purple-600"></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Nouveau prix:</label>
+                    <div id="upgrade-plan-price" class="text-2xl font-bold text-gray-800"></div>
+                </div>
+
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button type="button" onclick="closeUpgradeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <i class="fas fa-check mr-2"></i>Confirmer le changement
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ==================== TOKEN AUTHENTICATION ====================
+        let authToken = null;
+
+        // Listen for token from parent (dashboard)
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) {
+                console.warn('Received message from untrusted origin:', event.origin);
+                return;
+            }
+            
+            console.log('[SUBSCRIPTION] Received postMessage:', event.data);
+            
+            const { type, token } = event.data;
+            if (type === 'AUTH_TOKEN' && token) {
+                console.log('[SUBSCRIPTION] Setting authToken from postMessage');
+                localStorage.setItem('authToken', token);
+                authToken = token;
+                initializeSubscriptionManager();
+            }
+        });
+
+        // Get auth token from localStorage or memory
+        function getAuthToken() {
+            if (!authToken) {
+                authToken = localStorage.getItem('authToken');
+                console.log('[SUBSCRIPTION] Retrieved authToken from localStorage:', authToken ? 'exists' : 'null');
+            }
+            return authToken;
+        }
+
+        // Check if token is available on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('[SUBSCRIPTION] DOMContentLoaded - checking for token');
+            const token = getAuthToken();
+            if (token) {
+                console.log('[SUBSCRIPTION] Token found in localStorage, initializing...');
+                authToken = token;
+                initializeSubscriptionManager();
+            } else {
+                console.log('[SUBSCRIPTION] No token found, waiting for postMessage...');
+            }
+        });
+
+        // ==================== API CALLS ====================
+        async function apiCall(endpoint, options = {}) {
+            const token = getAuthToken();
+            if (!token) {
+                console.error('[SUBSCRIPTION] No authentication token available');
+                throw new Error("No authentication token available");
+            }
+            
+            console.log(`[SUBSCRIPTION] API Call: ${endpoint}`, options);
+            
+            const response = await fetch(`/api${endpoint}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    ...options.headers
+                }
+            });
+            
+            console.log(`[SUBSCRIPTION] API Response status: ${response.status}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[SUBSCRIPTION] API Error:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log(`[SUBSCRIPTION] API Data:`, data);
+            return data;
+        }
+
+        // ==================== INITIALIZATION ====================
+        function initializeSubscriptionManager() {
+            console.log('[SUBSCRIPTION] Initializing Subscription Manager...');
+            loadPlans();
+            
+            // Setup form handlers
+            document.getElementById('subscribe-form').addEventListener('submit', handleSubscribe);
+            document.getElementById('upgrade-form').addEventListener('submit', handleUpgrade);
+        }
+
+        // ==================== LOAD FUNCTIONS ====================
+        window.loadPlans = async function() {
+            console.log('[SUBSCRIPTION] Loading plans...');
+            try {
+                const data = await apiCall('/subscription/plans');
+                if (data.success && data.plans) {
+                    console.log('[SUBSCRIPTION] Plans loaded:', data.plans);
+                    displayPlans(data.plans);
+                } else {
+                    console.error('[SUBSCRIPTION] Invalid plans data:', data);
+                }
+            } catch (error) {
+                console.error('[SUBSCRIPTION] Failed to load plans:', error);
+                document.getElementById('plans-grid').innerHTML = `
+                    <div class="col-span-3 text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement des plans: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.loadSubscriptionStatus = async function() {
+            console.log('[SUBSCRIPTION] Loading subscription status...');
+            try {
+                const data = await apiCall('/subscription/status');
+                if (data.success) {
+                    console.log('[SUBSCRIPTION] Status loaded:', data);
+                    displaySubscriptionStatus(data);
+                }
+            } catch (error) {
+                console.error('[SUBSCRIPTION] Failed to load status:', error);
+                document.getElementById('status-content').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement du statut: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.loadUsage = async function() {
+            console.log('[SUBSCRIPTION] Loading usage data...');
+            try {
+                const data = await apiCall('/subscription/usage');
+                if (data.success) {
+                    console.log('[SUBSCRIPTION] Usage loaded:', data);
+                    displayUsage(data);
+                }
+            } catch (error) {
+                console.error('[SUBSCRIPTION] Failed to load usage:', error);
+                document.getElementById('usage-content').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement de l'utilisation: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.loadHistory = async function() {
+            console.log('[SUBSCRIPTION] Loading subscription history...');
+            try {
+                const data = await apiCall('/subscription/history');
+                if (data.success && data.history) {
+                    console.log('[SUBSCRIPTION] History loaded:', data.history);
+                    displayHistory(data.history);
+                }
+            } catch (error) {
+                console.error('[SUBSCRIPTION] Failed to load history:', error);
+                document.getElementById('history-content').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Erreur lors du chargement de l'historique: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ==================== DISPLAY FUNCTIONS ====================
+        function displayPlans(plans) {
+            const grid = document.getElementById('plans-grid');
+            
+            if (!plans || plans.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-3 text-center py-8 text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-4"></i>
+                        <p>Aucun plan disponible</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = plans.map(plan => `
+                <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow-lg p-6 border-2 border-purple-200 hover:border-purple-400 transition-all">
+                    <div class="text-center mb-4">
+                        <h3 class="text-2xl font-bold text-gray-800">${plan.display_name || plan.name}</h3>
+                        ${plan.is_active ? '<span class="badge badge-success">Actif</span>' : '<span class="badge badge-danger">Inactif</span>'}
+                    </div>
+                    
+                    <div class="text-center mb-6">
+                        <div class="text-4xl font-bold text-purple-600">${plan.price_usd}€</div>
+                        <div class="text-gray-600">/${plan.billing_period || 'mois'}</div>
+                    </div>
+                    
+                    <div class="space-y-2 mb-6">
+                        <div class="flex items-center text-gray-700">
+                            <i class="fas fa-server w-6 text-purple-600"></i>
+                            <span>${plan.max_projects || 0} projets max</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">
+                            <i class="fas fa-robot w-6 text-purple-600"></i>
+                            <span>${plan.max_ai_calls || 0} appels IA/jour</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">
+                            <i class="fas fa-database w-6 text-purple-600"></i>
+                            <span>${plan.max_storage_mb || 0} MB stockage</span>
+                        </div>
+                        ${plan.trial_days > 0 ? `
+                        <div class="flex items-center text-green-600 font-semibold">
+                            <i class="fas fa-gift w-6"></i>
+                            <span>${plan.trial_days} jours d'essai gratuit</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <button onclick="openSubscribeModal(${plan.id}, '${plan.display_name || plan.name}', ${plan.price_usd}, '${plan.billing_period || 'mois'}')" 
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition-colors"
+                            ${!plan.is_active ? 'disabled' : ''}>
+                        <i class="fas fa-check mr-2"></i>
+                        ${plan.trial_days > 0 ? 'Essai Gratuit' : 'Choisir ce Plan'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function displaySubscriptionStatus(data) {
+            const content = document.getElementById('status-content');
+            
+            if (!data.subscription) {
+                content.innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-inbox text-6xl text-gray-400 mb-4"></i>
+                        <h3 class="text-xl font-bold text-gray-700 mb-2">Aucun abonnement actif</h3>
+                        <p class="text-gray-600 mb-6">Choisissez un plan pour commencer</p>
+                        <button onclick="switchTab('plans')" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg">
+                            <i class="fas fa-box mr-2"></i>Voir les plans
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            const sub = data.subscription;
+            const plan = data.plan || {};
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-info-circle text-purple-600 mr-2"></i>
+                            Informations de l'Abonnement
+                        </h3>
+                        <div class="space-y-3">
+                            <div>
+                                <span class="text-gray-600">Plan:</span>
+                                <span class="font-semibold ml-2">${plan.display_name || plan.name || 'N/A'}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">Statut:</span>
+                                ${sub.status === 'active' ? '<span class="badge badge-success ml-2">Actif</span>' : 
+                                  sub.status === 'trial' ? '<span class="badge badge-info ml-2">Essai</span>' :
+                                  sub.status === 'cancelled' ? '<span class="badge badge-danger ml-2">Annulé</span>' :
+                                  '<span class="badge badge-warning ml-2">En attente</span>'}
+                            </div>
+                            <div>
+                                <span class="text-gray-600">Prix:</span>
+                                <span class="font-semibold ml-2">${plan.price_usd || 0}€/${plan.billing_period || 'mois'}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">Date de début:</span>
+                                <span class="ml-2">${new Date(sub.start_date).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">Date de fin:</span>
+                                <span class="ml-2">${new Date(sub.end_date).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            ${sub.auto_renew ? `
+                            <div class="flex items-center text-green-600">
+                                <i class="fas fa-sync-alt mr-2"></i>
+                                <span>Renouvellement automatique activé</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-blue-50 rounded-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-chart-line text-green-600 mr-2"></i>
+                            Limites & Utilisation
+                        </h3>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-gray-600">Projets</span>
+                                    <span class="font-semibold">${data.usage?.projects_used || 0} / ${plan.max_projects || 0}</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-purple-600 h-2 rounded-full" style="width: ${((data.usage?.projects_used || 0) / (plan.max_projects || 1)) * 100}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-gray-600">Appels IA aujourd'hui</span>
+                                    <span class="font-semibold">${data.usage?.ai_calls_today || 0} / ${plan.max_ai_calls || 0}</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${((data.usage?.ai_calls_today || 0) / (plan.max_ai_calls || 1)) * 100}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-gray-600">Stockage</span>
+                                    <span class="font-semibold">${data.usage?.storage_used_mb || 0} / ${plan.max_storage_mb || 0} MB</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: ${((data.usage?.storage_used_mb || 0) / (plan.max_storage_mb || 1)) * 100}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button onclick="switchTab('plans')" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg">
+                        <i class="fas fa-arrow-up mr-2"></i>Changer de Plan
+                    </button>
+                    ${sub.status === 'active' ? `
+                    <button onclick="handleCancelSubscription()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg">
+                        <i class="fas fa-times mr-2"></i>Annuler l'Abonnement
+                    </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function displayUsage(data) {
+            const content = document.getElementById('usage-content');
+            const usage = data.usage || {};
+            const limits = data.limits || {};
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">Projets</h3>
+                            <i class="fas fa-server text-3xl text-purple-600"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-purple-600 mb-2">
+                            ${usage.projects_used || 0} / ${limits.max_projects || 0}
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="bg-purple-600 h-3 rounded-full" style="width: ${((usage.projects_used || 0) / (limits.max_projects || 1)) * 100}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">Appels IA</h3>
+                            <i class="fas fa-robot text-3xl text-blue-600"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-blue-600 mb-2">
+                            ${usage.ai_calls_today || 0} / ${limits.max_ai_calls || 0}
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="bg-blue-600 h-3 rounded-full" style="width: ${((usage.ai_calls_today || 0) / (limits.max_ai_calls || 1)) * 100}%"></div>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-2">Aujourd'hui</div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-gray-800">Stockage</h3>
+                            <i class="fas fa-database text-3xl text-green-600"></i>
+                        </div>
+                        <div class="text-3xl font-bold text-green-600 mb-2">
+                            ${usage.storage_used_mb || 0} MB
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="bg-green-600 h-3 rounded-full" style="width: ${((usage.storage_used_mb || 0) / (limits.max_storage_mb || 1)) * 100}%"></div>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-2">sur ${limits.max_storage_mb || 0} MB</div>
+                    </div>
+                </div>
+                
+                ${usage.recent_activities && usage.recent_activities.length > 0 ? `
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-chart-line text-purple-600 mr-2"></i>
+                        Activités Récentes
+                    </h3>
+                    <div class="space-y-3">
+                        ${usage.recent_activities.map(activity => `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <i class="fas ${activity.icon || 'fa-circle'} text-purple-600 mr-3"></i>
+                                    <span class="text-gray-700">${activity.description}</span>
+                                </div>
+                                <span class="text-sm text-gray-500">${new Date(activity.timestamp).toLocaleString('fr-FR')}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function displayHistory(history) {
+            const content = document.getElementById('history-content');
+            
+            if (!history || history.length === 0) {
+                content.innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-history text-6xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">Aucun historique d'abonnement</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            content.innerHTML = `
+                <div class="space-y-4">
+                    ${history.map(item => `
+                        <div class="bg-white border border-gray-200 rounded-lg p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 class="text-lg font-bold text-gray-800">${item.plan_name}</h4>
+                                    <p class="text-gray-600">${item.price_usd}€ / ${item.billing_period}</p>
+                                </div>
+                                ${item.status === 'active' ? '<span class="badge badge-success">Actif</span>' : 
+                                  item.status === 'completed' ? '<span class="badge badge-info">Complété</span>' :
+                                  item.status === 'cancelled' ? '<span class="badge badge-danger">Annulé</span>' :
+                                  '<span class="badge badge-warning">Expiré</span>'}
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-600">Début:</span>
+                                    <span class="ml-2 font-semibold">${new Date(item.start_date).toLocaleDateString('fr-FR')}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">Fin:</span>
+                                    <span class="ml-2 font-semibold">${new Date(item.end_date).toLocaleDateString('fr-FR')}</span>
+                                </div>
+                                ${item.action ? `
+                                <div class="col-span-2">
+                                    <span class="text-gray-600">Action:</span>
+                                    <span class="ml-2">${item.action}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // ==================== MODAL FUNCTIONS ====================
+        function openSubscribeModal(planId, planName, price, period) {
+            document.getElementById('subscribe-plan-id').value = planId;
+            document.getElementById('subscribe-plan-name').textContent = planName;
+            document.getElementById('subscribe-plan-price').textContent = `${price}€ / ${period}`;
+            document.getElementById('subscribe-modal').classList.add('show');
+        }
+
+        function closeSubscribeModal() {
+            document.getElementById('subscribe-modal').classList.remove('show');
+        }
+
+        function openUpgradeModal(planId, planName, price, period) {
+            document.getElementById('upgrade-plan-id').value = planId;
+            document.getElementById('upgrade-plan-name').textContent = planName;
+            document.getElementById('upgrade-plan-price').textContent = `${price}€ / ${period}`;
+            document.getElementById('upgrade-modal').classList.add('show');
+        }
+
+        function closeUpgradeModal() {
+            document.getElementById('upgrade-modal').classList.remove('show');
+        }
+
+        // ==================== ACTION HANDLERS ====================
+        async function handleSubscribe(e) {
+            e.preventDefault();
+            const planId = document.getElementById('subscribe-plan-id').value;
+            
+            try {
+                const data = await apiCall('/subscription/subscribe', {
+                    method: 'POST',
+                    body: JSON.stringify({ plan_id: parseInt(planId) })
+                });
+                
+                if (data.success) {
+                    alert('Abonnement créé avec succès!');
+                    closeSubscribeModal();
+                    loadSubscriptionStatus();
+                    switchTab('status');
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec de la création de l\'abonnement'));
+                }
+            } catch (error) {
+                console.error('Subscribe error:', error);
+                alert('Erreur lors de la création de l\'abonnement: ' + error.message);
+            }
+        }
+
+        async function handleUpgrade(e) {
+            e.preventDefault();
+            const newPlanId = document.getElementById('upgrade-plan-id').value;
+            
+            try {
+                const data = await apiCall('/subscription/upgrade', {
+                    method: 'POST',
+                    body: JSON.stringify({ new_plan_id: parseInt(newPlanId) })
+                });
+                
+                if (data.success) {
+                    alert('Plan changé avec succès!');
+                    closeUpgradeModal();
+                    loadSubscriptionStatus();
+                    switchTab('status');
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec du changement de plan'));
+                }
+            } catch (error) {
+                console.error('Upgrade error:', error);
+                alert('Erreur lors du changement de plan: ' + error.message);
+            }
+        }
+
+        async function handleCancelSubscription() {
+            if (!confirm('Êtes-vous sûr de vouloir annuler votre abonnement? Cette action est irréversible.')) {
+                return;
+            }
+            
+            try {
+                const data = await apiCall('/subscription/cancel', {
+                    method: 'POST'
+                });
+                
+                if (data.success) {
+                    alert('Abonnement annulé avec succès.');
+                    loadSubscriptionStatus();
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec de l\'annulation'));
+                }
+            } catch (error) {
+                console.error('Cancel error:', error);
+                alert('Erreur lors de l\'annulation: ' + error.message);
+            }
+        }
+
+        // ==================== TAB SWITCHING ====================
+        function switchTab(tabName) {
+            console.log('[SUBSCRIPTION] Switching to tab:', tabName);
+            
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            
+            // Load data for the tab
+            switch(tabName) {
+                case 'plans':
+                    loadPlans();
+                    break;
+                case 'status':
+                    loadSubscriptionStatus();
+                    break;
+                case 'usage':
+                    loadUsage();
+                    break;
+                case 'history':
+                    loadHistory();
+                    break;
+            }
+        }
+
+        function handleRefresh() {
+            const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+            switchTab(activeTab);
+        }
+    </script>
+</body>
+</html>

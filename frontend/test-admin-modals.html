@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Modales Admin - VPS DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-vial text-purple-600 mr-2"></i>
+                Test des Modales d'Administration
+            </h1>
+            <p class="text-gray-600 mb-6">
+                Cette page teste les modales de modification sans authentification.
+                Toutes les modales sont fonctionnelles visuellement.
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Test Edit User -->
+                <button onclick="testEditUser()" class="bg-blue-600 hover:bg-blue-700 text-white p-6 rounded-lg text-center">
+                    <i class="fas fa-user-edit text-4xl mb-3"></i>
+                    <div class="font-bold">Tester</div>
+                    <div class="text-sm">Modifier Utilisateur</div>
+                </button>
+                
+                <!-- Test Edit Plan -->
+                <button onclick="testEditPlan()" class="bg-purple-600 hover:bg-purple-700 text-white p-6 rounded-lg text-center">
+                    <i class="fas fa-box-open text-4xl mb-3"></i>
+                    <div class="font-bold">Tester</div>
+                    <div class="text-sm">Modifier Plan</div>
+                </button>
+                
+                <!-- Test Edit Setting -->
+                <button onclick="testEditSetting()" class="bg-green-600 hover:bg-green-700 text-white p-6 rounded-lg text-center">
+                    <i class="fas fa-cogs text-4xl mb-3"></i>
+                    <div class="font-bold">Tester</div>
+                    <div class="text-sm">Modifier Paramètre</div>
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                Résultats des Tests
+            </h2>
+            <div id="test-results" class="space-y-2">
+                <p class="text-gray-600">Cliquez sur les boutons ci-dessus pour tester les modales...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Modifier l'Utilisateur</h2>
+                <button onclick="closeModal('edit-user-modal')" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <form id="edit-user-form" class="space-y-4" onsubmit="handleTestSubmit(event, 'utilisateur')">
+                <input type="hidden" id="edit-user-id" value="test-user-1">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
+                    <input type="text" id="edit-user-full-name" value="Jean Dupont" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="edit-user-email" value="jean.dupont@example.com" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rôle</label>
+                    <select id="edit-user-role" class="w-full px-4 py-2 border rounded-lg">
+                        <option value="user" selected>Utilisateur</option>
+                        <option value="admin">Administrateur</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+                    <select id="edit-user-status" class="w-full px-4 py-2 border rounded-lg">
+                        <option value="active" selected>Actif</option>
+                        <option value="inactive">Inactif</option>
+                        <option value="suspended">Suspendu</option>
+                    </select>
+                </div>
+                <div class="flex gap-4">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                    <button type="button" onclick="closeModal('edit-user-modal')" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Plan Modal -->
+    <div id="edit-plan-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Modifier le Plan</h2>
+                <button onclick="closeModal('edit-plan-modal')" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <form id="edit-plan-form" class="space-y-4" onsubmit="handleTestSubmit(event, 'plan')">
+                <input type="hidden" id="edit-plan-id" value="plan-pro">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom du Plan</label>
+                    <input type="text" id="edit-plan-name" value="Plan Pro" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prix (€)</label>
+                    <input type="number" step="0.01" id="edit-plan-price" value="29.99" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Durée (jours)</label>
+                    <input type="number" id="edit-plan-duration" value="30" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Limite VPS</label>
+                    <input type="number" id="edit-plan-vps-limit" value="10" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea id="edit-plan-description" rows="3" class="w-full px-4 py-2 border rounded-lg">Plan professionnel avec support prioritaire</textarea>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="edit-plan-is-popular" checked class="mr-2">
+                    <label for="edit-plan-is-popular" class="text-sm font-medium text-gray-700">Plan populaire</label>
+                </div>
+                <div class="flex gap-4">
+                    <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                    <button type="button" onclick="closeModal('edit-plan-modal')" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Setting Modal -->
+    <div id="edit-setting-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Modifier le Paramètre</h2>
+                <button onclick="closeModal('edit-setting-modal')" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <form id="edit-setting-form" class="space-y-4" onsubmit="handleTestSubmit(event, 'paramètre')">
+                <input type="hidden" id="edit-setting-key" value="max_vps_per_user">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clé</label>
+                    <input type="text" id="edit-setting-key-display" value="max_vps_per_user" readonly class="w-full px-4 py-2 border rounded-lg bg-gray-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valeur</label>
+                    <input type="text" id="edit-setting-value" value="100" required class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea id="edit-setting-description" readonly rows="2" class="w-full px-4 py-2 border rounded-lg bg-gray-100">Nombre maximum de VPS par utilisateur</textarea>
+                </div>
+                <div class="flex gap-4">
+                    <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg">
+                        <i class="fas fa-save mr-2"></i>Enregistrer
+                    </button>
+                    <button type="button" onclick="closeModal('edit-setting-modal')" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg">
+                        Annuler
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let testCount = 0;
+        
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function testEditUser() {
+            addTestResult('✅ Ouverture modale "Modifier Utilisateur"', 'success');
+            openModal('edit-user-modal');
+        }
+        
+        function testEditPlan() {
+            addTestResult('✅ Ouverture modale "Modifier Plan"', 'success');
+            openModal('edit-plan-modal');
+        }
+        
+        function testEditSetting() {
+            addTestResult('✅ Ouverture modale "Modifier Paramètre"', 'success');
+            openModal('edit-setting-modal');
+        }
+        
+        function handleTestSubmit(event, type) {
+            event.preventDefault();
+            addTestResult(`✅ Formulaire ${type} validé avec succès`, 'success');
+            addTestResult(`📊 Données du formulaire ${type}:`, 'info');
+            
+            const formData = new FormData(event.target);
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            addTestResult(`   ${JSON.stringify(data, null, 2)}`, 'data');
+            
+            // Close modal after 1 second
+            setTimeout(() => {
+                closeModal(event.target.closest('.modal').id);
+                addTestResult(`✅ Modale ${type} fermée automatiquement`, 'success');
+            }, 1000);
+        }
+        
+        function addTestResult(message, type = 'info') {
+            testCount++;
+            const resultsDiv = document.getElementById('test-results');
+            
+            if (testCount === 1) {
+                resultsDiv.innerHTML = '';
+            }
+            
+            let bgColor = 'bg-blue-50';
+            let icon = 'fa-info-circle';
+            let iconColor = 'text-blue-500';
+            
+            if (type === 'success') {
+                bgColor = 'bg-green-50';
+                icon = 'fa-check-circle';
+                iconColor = 'text-green-500';
+            } else if (type === 'error') {
+                bgColor = 'bg-red-50';
+                icon = 'fa-times-circle';
+                iconColor = 'text-red-500';
+            } else if (type === 'data') {
+                bgColor = 'bg-gray-50';
+                icon = 'fa-code';
+                iconColor = 'text-gray-500';
+            }
+            
+            const resultItem = document.createElement('div');
+            resultItem.className = `${bgColor} p-3 rounded-lg flex items-start`;
+            resultItem.innerHTML = `
+                <i class="fas ${icon} ${iconColor} mr-3 mt-1"></i>
+                <div class="flex-1">
+                    <pre class="text-sm text-gray-800 whitespace-pre-wrap">${message}</pre>
+                    <div class="text-xs text-gray-500 mt-1">${new Date().toLocaleTimeString()}</div>
+                </div>
+            `;
+            
+            resultsDiv.appendChild(resultItem);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+        
+        // Initial message
+        setTimeout(() => {
+            addTestResult('🚀 Page de test chargée avec succès', 'success');
+            addTestResult('📋 3 modales disponibles pour les tests', 'info');
+        }, 500);
+    </script>
+</body>
+</html>

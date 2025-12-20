@@ -1,0 +1,295 @@
+═══════════════════════════════════════════════════════════════
+   AUTOPSIE ARCHITECTURE - VPS DEVOPS AGENT
+═══════════════════════════════════════════════════════════════
+
+📅 Date: Mon Nov 24 18:48:33 UTC 2025
+📍 Location: /opt/vps-devops-agent/
+🔖 Version: 1.0.0
+
+───────────────────────────────────────────────────────────────
+📊 STATISTIQUES PROJET
+───────────────────────────────────────────────────────────────
+
+Backend Routes:        100+ endpoints
+Frontend Pages:        17 HTML pages
+Database Tables:       30+ tables
+Dependencies:          23 npm packages
+Database Size:         892 KB
+Total Lines of Code:   ~20,000 lines
+
+───────────────────────────────────────────────────────────────
+🏗️ ARCHITECTURE TECHNIQUE
+───────────────────────────────────────────────────────────────
+
+Backend Stack:
+  ✓ Node.js + Express 4.18.2
+  ✓ SQLite3 (better-sqlite3 12.4.6)
+  ✓ JWT Authentication (7 days expiry)
+  ✓ WebSocket (ws 8.18.3)
+  ✓ OpenAI GPT-4 Integration
+  ✓ Docker API (Dockerode 4.0.9)
+  ✓ SSH Terminal (ssh2 1.17.0)
+
+Frontend Stack:
+  ✓ Vanilla JavaScript (ES6+)
+  ✓ TailwindCSS (CDN)
+  ✓ Font Awesome Icons
+  ✓ Chart.js for visualizations
+  ✓ iframe + postMessage architecture
+
+───────────────────────────────────────────────────────────────
+📁 STRUCTURE RÉPERTOIRES
+───────────────────────────────────────────────────────────────
+
+vps-devops-agent/
+├── backend/
+│   ├── config/          (2 files)
+│   ├── database/        (3 files)
+│   ├── middleware/      (6 files)
+│   ├── routes/          (18 files)
+│   ├── scripts/         (3 files)
+│   ├── services/        (16 files)
+│   └── server.js
+├── frontend/
+│   ├── *.html           (17 pages)
+│   ├── *.js             (6 scripts)
+│   └── manifest.json
+├── data/
+│   ├── devops-agent.db  (892 KB)
+│   └── rbac.db          (110 KB)
+└── migrations/          (3 SQL files)
+
+───────────────────────────────────────────────────────────────
+🛣️ ROUTES API (18 MODULES)
+───────────────────────────────────────────────────────────────
+
+/api/auth            - Authentication (2 endpoints)
+/api/agent           - Server management (10 endpoints)
+/api/autonomous      - Autonomous agent (10 endpoints)
+/api/ai              - AI Agent chat (8 endpoints)
+/api/projects        - Project management (6 endpoints)
+/api/docker          - Docker management (10+ endpoints)
+/api/monitoring      - System monitoring (9 endpoints)
+/api/subscription    - Subscription system (7 endpoints)
+/api/admin           - Admin panel (10+ endpoints)
+/api/cicd            - CI/CD pipelines (8 endpoints)
+/api/servers         - Server CRUD (5 endpoints)
+/api/templates       - Command templates (8 endpoints)
+/api/terminal        - SSH WebSocket (1 endpoint + WS)
+/api/capabilities    - Agent capabilities (5 endpoints)
+/api/enhancements    - API enhancements (10+ endpoints)
+/api/subscription-v2 - Subscription v2 (7 endpoints)
+/api/auth-v2         - Auth v2 (3 endpoints)
+/api/ai/agent        - AI Chat legacy (1 endpoint)
+
+───────────────────────────────────────────────────────────────
+🗄️ BASE DE DONNÉES (30+ TABLES)
+───────────────────────────────────────────────────────────────
+
+Core Tables:
+  • users                  - User accounts & auth
+  • servers                - Managed servers
+  • subscription_plans     - Subscription tiers
+  • subscriptions          - Active subscriptions
+  • autonomous_tasks       - Agent autonomous tasks
+  • ai_conversations       - AI chat history
+  • command_history        - Command execution logs
+  • metrics_history        - System metrics
+  • alert_config           - Alert configuration
+  • payment_transactions   - Payment records
+
+Views:
+  • v_active_subscriptions
+  • v_user_stats
+  • v_servers_summary
+  • v_pending_payments
+
+───────────────────────────────────────────────────────────────
+🎨 PAGES FRONTEND (17 PAGES)
+───────────────────────────────────────────────────────────────
+
+Authentication:
+  ✓ index.html                 - Login page (5 KB)
+
+Main Dashboard:
+  ✓ dashboard.html             - Main dashboard (150 KB)
+
+Feature Pages:
+  ✓ admin-panel.html           - Admin panel (62 KB)
+  ✓ autonomous-agent.html      - Autonomous agent (29 KB)
+  ✓ projects-manager.html      - Project management (32 KB)
+  ✓ subscription-manager.html  - Subscription mgmt (38 KB)
+  ✓ ai-agent-chat.html         - AI chat interface (29 KB)
+  ✓ docker-manager.html        - Docker management (39 KB)
+  ✓ monitoring.html            - System monitoring (41 KB)
+  ✓ monitoring-advanced.html   - Advanced monitoring (20 KB)
+  ✓ terminal-ssh.html          - SSH terminal (21 KB)
+  ✓ agent-devops.html          - DevOps agent (75 KB)
+  ✓ code-analyzer.html         - Code analyzer (20 KB)
+  ✓ enhancements.html          - API enhancements (24 KB)
+  ✓ sandbox-playground.html    - Sandbox testing (16 KB)
+  ✓ cicd.html                  - CI/CD pipelines (3 KB)
+  ✓ test-admin-modals.html     - Modal testing (14 KB)
+
+───────────────────────────────────────────────────────────────
+🔐 SÉCURITÉ
+───────────────────────────────────────────────────────────────
+
+Authentication:
+  • JWT tokens (HS256 algorithm)
+  • 7 days expiration
+  • bcrypt password hashing
+  • Bearer token in Authorization header
+
+Authorization:
+  • Role-based access control (RBAC)
+  • Admin vs User permissions
+  • Resource ownership validation
+
+Security Measures:
+  • CORS enabled
+  • Helmet.js security headers
+  • Rate limiting per IP/user
+  • SQL injection protection (prepared statements)
+  • XSS protection (Content-Type headers)
+
+───────────────────────────────────────────────────────────────
+🤖 AGENT AUTONOME
+───────────────────────────────────────────────────────────────
+
+Capabilities:
+  ✓ Natural language command interpretation (GPT-4)
+  ✓ Multi-step action plan generation
+  ✓ Risk classification (LOW, MODERATE, HIGH, CRITICAL)
+  ✓ Autonomous execution with approval workflow
+  ✓ Complete execution history tracking
+
+Workflow:
+  1. User inputs natural language command
+  2. GPT-4 analyzes and generates action plan
+  3. System classifies risk level
+  4. User approves if HIGH/CRITICAL risk
+  5. Sequential execution of steps
+  6. Results logging and feedback
+
+───────────────────────────────────────────────────────────────
+📊 MONITORING SYSTÈME
+───────────────────────────────────────────────────────────────
+
+Metrics Collected (every 30s):
+  • CPU usage (%)
+  • RAM usage (MB / Total MB)
+  • Disk usage (GB / Total GB)
+  • Network I/O (Rx/Tx bytes)
+  • System uptime
+
+Alert Channels:
+  • Email (SMTP configurable)
+  • Telegram (Bot + Chat ID)
+
+Alert Thresholds:
+  • CPU: 80%
+  • RAM: 85%
+  • Disk: 90%
+
+Data Retention:
+  • Metrics: 30 days
+  • Alerts: 90 days
+
+───────────────────────────────────────────────────────────────
+🐳 DOCKER INTEGRATION
+───────────────────────────────────────────────────────────────
+
+Container Management:
+  ✓ List / Create / Start / Stop / Restart
+  ✓ Real-time stats (CPU, RAM, Network)
+  ✓ Log streaming
+  ✓ Container inspection
+
+Image Management:
+  ✓ List images
+  ✓ Pull from registry
+  ✓ Remove images
+
+Docker Compose:
+  ✓ Execute compose commands
+  ✓ Multi-container orchestration
+
+───────────────────────────────────────────────────────────────
+💳 SYSTÈME ABONNEMENT
+───────────────────────────────────────────────────────────────
+
+Plans:
+  [FREE]       0€/mois   - 3 projects, 10 tasks/day
+  [PRO]       29€/mois   - 20 projects, 100 tasks/day
+  [ENTERPRISE] 199€/mois - Unlimited everything
+
+Payment Methods:
+  • Mobile Money (Vodacom, Airtel, Orange, Africell)
+  • Credit Card (Stripe - coming soon)
+
+Features Tracking:
+  • Usage monitoring per plan
+  • Automatic limit enforcement
+  • Upgrade/downgrade support
+  • Payment transaction history
+
+───────────────────────────────────────────────────────────────
+🚀 DÉPLOIEMENT
+───────────────────────────────────────────────────────────────
+
+Production Setup:
+  • OS: Linux (Ubuntu/Debian)
+  • Process Manager: PM2
+  • Web Server: Nginx (reverse proxy)
+  • SSL: Let's Encrypt (certbot)
+  • Domain: devops.aenews.net
+  • Backend Port: 4000
+  • Backend PID: 838872
+
+PM2 Process:
+  Name: vps-devops-agent
+  Status: Online
+  Restarts: 76
+  Uptime: ~1 hour
+
+───────────────────────────────────────────────────────────────
+✅ CORRECTIONS RÉCENTES
+───────────────────────────────────────────────────────────────
+
+1. Token JWT étendu: 24h → 7 jours ✅
+2. Table autonomous_tasks créée dans bonne DB ✅
+3. Workspace /opt/agent-projects créé ✅
+4. Routes /status et /tasks ajoutées ✅
+5. Backend redémarré avec nouvelles routes ✅
+
+───────────────────────────────────────────────────────────────
+🎯 PROCHAINES ÉTAPES
+───────────────────────────────────────────────────────────────
+
+Immédiat:
+  □ User doit se déconnecter/reconnecter (nouveau token)
+  □ Tester 3 nouvelles pages (autonomous, projects, subscription)
+  □ Vérifier toutes les fonctionnalités
+
+Court Terme:
+  □ Tests unitaires routes critiques
+  □ Amélioration gestion erreurs frontend
+  □ Documentation API complète
+
+Moyen Terme:
+  □ Analytics dashboard utilisateurs
+  □ 2FA (Two-Factor Authentication)
+  □ Notifications email avancées
+  □ Extension agent autonome
+
+Long Terme:
+  □ Internationalisation (i18n)
+  □ Marketplace plugins
+  □ Intégrations GitHub/GitLab/AWS
+  □ Mode multi-tenant
+  □ Version SaaS publique
+
+═══════════════════════════════════════════════════════════════
+   FIN DE L'AUTOPSIE
+═══════════════════════════════════════════════════════════════

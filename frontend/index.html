@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script src="/auth-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - VPS DevOps Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <i class="fas fa-robot text-6xl text-blue-600 mb-4"></i>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">VPS DevOps Agent</h1>
+            <p class="text-gray-600">Intelligence artificielle pour la gestion d'infrastructure</p>
+        </div>
+
+        <div id="alert" class="hidden mb-4 p-4 rounded-lg"></div>
+
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-user mr-2"></i>Nom d'utilisateur
+                </label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    required
+                    placeholder="admin"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-lock mr-2"></i>Mot de passe
+                </label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    required
+                    placeholder="••••••••"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+            </div>
+
+            <button 
+                type="submit" 
+                id="loginBtn"
+                class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition duration-200 flex items-center justify-center"
+            >
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                <span id="btnText">Se connecter</span>
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-gray-600">
+            <p>Identifiants par défaut :</p>
+            <p class="font-mono text-xs mt-2">admin / admin2025</p>
+        </div>
+    </div>
+
+    <script>
+        // 🔐 Protection: Redirect if already authenticated
+        AuthGuard.protectPage({ requireAuth: false, redirectIfAuth: true });
+
+        const API_URL = window.location.origin;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('btnText');
+            const alert = document.getElementById('alert');
+
+            // Disable button
+            loginBtn.disabled = true;
+            btnText.textContent = 'Connexion...';
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Sauvegarder le token
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    // Afficher succès
+                    alert.className = 'mb-4 p-4 rounded-lg bg-green-100 text-green-800 border border-green-300';
+                    alert.textContent = '✅ Connexion réussie ! Redirection...';
+                    alert.classList.remove('hidden');
+
+                    // Rediriger vers le dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Identifiants invalides');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                
+                alert.className = 'mb-4 p-4 rounded-lg bg-red-100 text-red-800 border border-red-300';
+                alert.textContent = `❌ ${error.message}`;
+                alert.classList.remove('hidden');
+                
+                loginBtn.disabled = false;
+                btnText.textContent = 'Se connecter';
+            }
+        });
+
+        // Vérifier si déjà connecté
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            window.location.href = '/dashboard.html';
+        }
+    </script>
+</body>
+</html>
