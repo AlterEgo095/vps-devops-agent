@@ -68,11 +68,20 @@ export function initializeDatabase() {
 
 /**
  * Initialize admin user
+ * [SECURITY] P1.3 — Le mot de passe admin N'A PLUS de valeur par défaut.
+ * ADMIN_PASSWORD doit être défini dans .env. Le processus crashe au boot
+ * (server.js) si absent ou trop faible — cette fonction n'est donc jamais
+ * appelée sans un mot de passe sécurisé.
  */
 function initializeAdminUser() {
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin2024';
-  
+  // [SECURITY] P1.3 — Suppression du fallback 'Admin2024'. Validé dans server.js.
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    throw new Error('[SECURITY] ADMIN_PASSWORD must be set in environment variables. Refusing to create admin with default password.');
+  }
+
   // Check if admin already exists
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername);
   

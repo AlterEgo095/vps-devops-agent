@@ -154,12 +154,14 @@ TELEGRAM_CHAT_ID=your-chat-id
 ### Accès Dashboard
 ```
 URL: http://your-server:4000
-Identifiants par défaut:
-  - Username: admin
-  - Password: admin2025
+Username: valeur de ADMIN_USERNAME dans .env (défaut: admin)
+Password: valeur de ADMIN_PASSWORD dans .env (obligatoire)
 ```
 
-⚠️ **Important:** Changez le mot de passe par défaut après première connexion!
+> 🔐 **Sécurité :** Il n'existe **aucun mot de passe par défaut**.  
+> `ADMIN_PASSWORD` **doit** être défini dans votre `.env` avant le premier démarrage.  
+> Le serveur refuse de démarrer si ce paramètre est absent ou trop faible (< 8 caractères).  
+> Consultez la section [Configuration .env](#configuration-env) pour les instructions.
 
 ### API Endpoints Principaux
 
