@@ -31,7 +31,8 @@ router.use(authenticateToken);
  * Déchiffre un mot de passe selon son format
  * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+// [SECURITY] P1.2 — Suppression du fallback 'default-secret'. JWT_SECRET validé au boot.
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
     if (!encryptedCredentials) {
         return '';
     }
@@ -494,7 +495,7 @@ router.post('/ai/agent/execute-command', validateBody(executeCommandSchema), asy
     try {
         const userId = req.user.id;
         const { serverId, command } = req.body;
-        console.log("[DEBUG] Request received - userId:", userId, "serverId:", serverId, "command:", command);
+        // [SECURITY] P1.1 — DEBUG log supprimé (exposait userId/serverId/command en clair)
         
         if (!serverId) {
             return res.status(400).json({
@@ -526,13 +527,9 @@ router.post('/ai/agent/execute-command', validateBody(executeCommandSchema), asy
         // Décrypter le mot de passe (supporte Base64 et AES-256-CBC)
         server.decrypted_password = decryptPassword(server.encrypted_credentials);
         
-        console.log("[DEBUG] Server query result:", server ? "FOUND" : "NOT FOUND");
+        // [SECURITY] P1.1 — Suppression des console.log DEBUG exposant host/username/credentials
         // Classifier le risque
         const risk = executor.classifyRisk(command);
-        
-        console.log("[DEBUG] Server found:", { id: server.id, host: server.host, username: server.username });
-        // Exécuter la commande
-        console.log("[DEBUG] Encrypted credentials:", server.encrypted_credentials);
         const results = await executor.executeOnMultipleServers([server], command);
         // Decrypted password: *** (hidden for security)
         const result = results[0];
@@ -690,7 +687,13 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-export default router;
+// ============================================================
+// [BUGFIX] P1.5 — Route /servers/sync remontée AVANT export default
+// Elle était précédemment déclarée après 'export default router',
+// ce qui la rendait silencieusement inaccessible (le module ES est
+// évalué séquentiellement ; les déclarations post-export ne sont
+// jamais enregistrées sur le router).
+// ============================================================
 
 /**
  * POST /api/agent/servers/sync
@@ -711,7 +714,7 @@ router.post('/servers/sync', async (req, res) => {
       // Mettre à jour le serveur existant
       const crypto = await import('crypto');
       const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
+      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       
@@ -744,7 +747,7 @@ router.post('/servers/sync', async (req, res) => {
       // Créer un nouveau serveur
       const crypto = await import('crypto');
       const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
+      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       
@@ -786,4 +789,8 @@ router.post('/servers/sync', async (req, res) => {
     });
   }
 });
+
+// [BUGFIX] P1.5 — export default placé en toute fin de fichier,
+// après la déclaration complète de toutes les routes (y compris /servers/sync).
+export default router;
 

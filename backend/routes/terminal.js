@@ -11,7 +11,8 @@ import * as sshTerminal from '../services/ssh-terminal.js';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+// [SECURITY] P1.2 — Plus de fallback hardcodé. JWT_SECRET validé au boot.
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // ============================================
 // FONCTION DE DÉCHIFFREMENT UNIVERSELLE
@@ -21,7 +22,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
  * Déchiffre un mot de passe selon son format
  * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+// [SECURITY] P1.2 — Suppression du fallback 'default-secret'. JWT_SECRET validé au boot.
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
     if (!encryptedCredentials) {
         return '';
     }

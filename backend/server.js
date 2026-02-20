@@ -2,6 +2,49 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ============================================================
+// [SECURITY] P1.2 — Validation des secrets critiques au boot
+// L'application refuse de démarrer si JWT_SECRET est absent
+// ou trop court (< 32 caractères). Cela empêche le fallback
+// vers 'default-secret-change-me' qui permettrait la forgerie
+// de tokens JWT par n'importe qui.
+// ============================================================
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.trim().length < 32) {
+  console.error('');
+  console.error('╔══════════════════════════════════════════════════════════╗');
+  console.error('║  ERREUR CRITIQUE DE SÉCURITÉ — DÉMARRAGE INTERROMPU     ║');
+  console.error('╠══════════════════════════════════════════════════════════╣');
+  console.error('║  JWT_SECRET est absent ou trop court (< 32 caractères). ║');
+  console.error('║  Configurez-le dans votre fichier .env :                ║');
+  console.error('║                                                          ║');
+  console.error('║  JWT_SECRET=<chaîne aléatoire d\'au moins 32 chars>      ║');
+  console.error('║                                                          ║');
+  console.error('║  Génération rapide :                                     ║');
+  console.error('║  node -e "console.log(require(\'crypto\')                  ║');
+  console.error('║           .randomBytes(48).toString(\'hex\'))"             ║');
+  console.error('╚══════════════════════════════════════════════════════════╝');
+  console.error('');
+  process.exit(1);
+}
+
+// [SECURITY] P1.3 — Vérification du mot de passe admin au boot
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD || ADMIN_PASSWORD === 'admin2025' || ADMIN_PASSWORD === 'Admin2024' || ADMIN_PASSWORD.length < 8) {
+  console.error('');
+  console.error('╔══════════════════════════════════════════════════════════╗');
+  console.error('║  ERREUR CRITIQUE DE SÉCURITÉ — DÉMARRAGE INTERROMPU     ║');
+  console.error('╠══════════════════════════════════════════════════════════╣');
+  console.error('║  ADMIN_PASSWORD est absent, trop court (< 8 chars)      ║');
+  console.error('║  ou utilise un mot de passe par défaut connu.           ║');
+  console.error('║  Configurez-le dans votre fichier .env :                ║');
+  console.error('║                                                          ║');
+  console.error('║  ADMIN_PASSWORD=<votre_mot_de_passe_securise>           ║');
+  console.error('╚══════════════════════════════════════════════════════════╝');
+  console.error('');
+  process.exit(1);
+}
+
 import express from 'express';
 import { validationFailureLogger } from './middleware/security-logger.js';
 import { apiLimiter } from './middleware/rate-limiter.js';
@@ -33,7 +76,10 @@ import SystemMonitor from './services/system-monitor.js';
 import AlertManager from './services/alert-manager.js';
 import dockerRouter from './routes/docker.js';
 import monitoringRouter from './routes/monitoring.js';
-import cicdRouter from './routes/cicd.js';
+// [SECURITY] P1.4 — Import des deux routers CI/CD :
+// - cicdRouter    : routes protégées par JWT (gestion projets, pipelines, etc.)
+// - webhookRouter : routes publiques validées par signature HMAC (GitHub/GitLab)
+import cicdRouter, { webhookRouter } from './routes/cicd.js';
 import enhancementsRouter from './routes/enhancements.js';
 import securityRouter from './routes/security.js';
 import capabilitiesRouter from './routes/capabilities.js';
@@ -126,7 +172,9 @@ app.use('/api/ai', aiAgentRouter); // AI Agent routes
 app.use('/api/terminal', terminalRouter); // Terminal SSH routes
 app.use('/api/docker', dockerRouter); // ✨ Docker routes
 app.use('/api/monitoring', monitoringRouter); // ✨ Monitoring routes
-app.use('/api/cicd', cicdRouter); // ✨ CI/CD Pipeline routes
+app.use('/api/cicd', cicdRouter); // ✨ CI/CD Pipeline routes (protégées JWT)
+// [SECURITY] P1.4 — webhookRouter monté séparément, sans JWT, validé par HMAC (P1.6)
+app.use('/api/cicd/webhooks', webhookRouter); // Webhook endpoints (GitHub/GitLab)
 app.use('/api/enhancements', enhancementsRouter); // ✨ Enhancements API routes
 app.use('/api/security', securityRouter); // 🔒 Security Monitoring routes
 app.use('/api/capabilities', capabilitiesRouter); // 🚀 Code Analyzer routes

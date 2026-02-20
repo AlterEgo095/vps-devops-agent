@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+// [SECURITY] P1.2 — Plus de fallback hardcodé. JWT_SECRET est validé
+// au démarrage dans server.js (process.exit si absent ou < 32 chars).
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
