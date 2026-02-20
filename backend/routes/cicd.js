@@ -6,6 +6,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+// [SECURITY] P1.4 — Import du middleware d'authentification JWT
+import { authenticateToken } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,6 +15,17 @@ const router = express.Router();
 
 const dbPath = path.join(__dirname, '../../data/database.sqlite');
 const db = new Database(dbPath);
+
+// ============================================================
+// [SECURITY] P1.4 — PROTECTION GLOBALE DES ROUTES CI/CD
+//
+// TOUTES les routes de ce router nécessitent un JWT valide,
+// À L'EXCEPTION des endpoints webhook (GitHub/GitLab) qui sont
+// appelés par des services externes et validés par signature HMAC.
+// Ces routes sont déclarées APRÈS ce middleware global et
+// utilisent leur propre validation de signature (P1.6).
+// ============================================================
+router.use(authenticateToken);
 
 // ============================================
 // PROJECTS MANAGEMENT
@@ -158,29 +171,34 @@ router.delete('/webhooks/config/:id', (req, res) => {
   }
 });
 
-// ============================================
-// WEBHOOK ENDPOINTS (GitHub & GitLab)
-// ============================================
+// ============================================================
+// WEBHOOK ENDPOINTS (GitHub & GitLab) — ROUTER PUBLIC SÉPARÉ
+// [SECURITY] P1.4 — Ces routes ne nécessitent PAS de JWT car
+// elles sont appelées par GitHub/GitLab. Elles sont montées sur
+// un router distinct (webhookRouter) sans authenticateToken.
+// La sécurité est assurée par la validation de signature HMAC
+// implémentée dans processWebhook() (voir P1.6).
+// ============================================================
+export const webhookRouter = express.Router();
 
 // POST /api/cicd/webhooks/github/:projectId - Recevoir webhook GitHub
-router.post('/webhooks/github/:projectId', async (req, res) => {
+webhookRouter.post('/github/:projectId', async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId);
-    const signature = req.headers['x-hub-signature-256'];
     const payload = JSON.stringify(req.body);
-    
-    // Traiter le webhook
+
+    // [SECURITY] P1.6 — La validation de signature est gérée dans processWebhook()
     const result = await webhookHandler.processWebhook(
       'github',
       payload,
       req.headers,
       projectId
     );
-    
+
     if (!result.success) {
       return res.status(400).json(result);
     }
-    
+
     // Si doit déclencher un déploiement
     if (result.shouldDeploy) {
       const jobId = pipelineRunner.addJob({
@@ -189,7 +207,7 @@ router.post('/webhooks/github/:projectId', async (req, res) => {
         commitSha: result.data.commitSha,
         branch: result.data.branch
       });
-      
+
       return res.json({
         success: true,
         message: 'Webhook received and deployment queued',
@@ -197,14 +215,14 @@ router.post('/webhooks/github/:projectId', async (req, res) => {
         jobId: jobId
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Webhook received but deployment not triggered',
       eventId: result.eventId,
       reason: 'Branch filter did not match'
     });
-    
+
   } catch (error) {
     console.error('[Webhook] GitHub error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -212,24 +230,23 @@ router.post('/webhooks/github/:projectId', async (req, res) => {
 });
 
 // POST /api/cicd/webhooks/gitlab/:projectId - Recevoir webhook GitLab
-router.post('/webhooks/gitlab/:projectId', async (req, res) => {
+webhookRouter.post('/gitlab/:projectId', async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId);
-    const token = req.headers['x-gitlab-token'];
     const payload = JSON.stringify(req.body);
-    
-    // Traiter le webhook
+
+    // [SECURITY] P1.6 — La validation de token GitLab est gérée dans processWebhook()
     const result = await webhookHandler.processWebhook(
       'gitlab',
       payload,
       req.headers,
       projectId
     );
-    
+
     if (!result.success) {
       return res.status(400).json(result);
     }
-    
+
     // Si doit déclencher un déploiement
     if (result.shouldDeploy) {
       const jobId = pipelineRunner.addJob({
@@ -238,7 +255,7 @@ router.post('/webhooks/gitlab/:projectId', async (req, res) => {
         commitSha: result.data.commitSha,
         branch: result.data.branch
       });
-      
+
       return res.json({
         success: true,
         message: 'Webhook received and deployment queued',
@@ -246,14 +263,14 @@ router.post('/webhooks/gitlab/:projectId', async (req, res) => {
         jobId: jobId
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Webhook received but deployment not triggered',
       eventId: result.eventId,
       reason: 'Branch filter did not match'
     });
-    
+
   } catch (error) {
     console.error('[Webhook] GitLab error:', error);
     res.status(500).json({ success: false, error: error.message });
