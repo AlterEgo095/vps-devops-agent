@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('FATAL: JWT_SECRET environment variable must be set and be at least 32 characters long');
+}
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -28,7 +31,7 @@ export function generateToken(user) {
       role: user.role 
     },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1h' }
   );
 }
 

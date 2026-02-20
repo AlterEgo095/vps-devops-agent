@@ -1,28 +1,11 @@
 import express from 'express';
 import dockerManager from '../services/docker-manager.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Middleware d'authentification (utilisé sur toutes les routes)
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token manquant' });
-  }
-
-  // Vérification JWT (à adapter selon votre configuration)
-  try {
-    // req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch (err) {
-    return res.status(403).json({ error: 'Token invalide' });
-  }
-};
-
-// Appliquer l'authentification sur toutes les routes
+// Appliquer l'authentification JWT sur toutes les routes Docker
 router.use(authenticateToken);
 
 // ==========================================

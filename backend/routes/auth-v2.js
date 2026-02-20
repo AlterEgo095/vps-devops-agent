@@ -8,7 +8,10 @@ import rbacDB from '../services/rbac-database.js';
 import logManager from '../services/logManager.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('FATAL: JWT_SECRET environment variable must be set and be at least 32 characters long');
+}
 
 /**
  * POST /api/auth/login
