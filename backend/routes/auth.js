@@ -7,6 +7,7 @@ import { loginLimiter, registerLimiter, sensitiveActionLimiter } from '../middle
 import { validateBody } from '../middleware/validate.js';
 import { loginSchema, registerSchema, changePasswordSchema } from '../middleware/validation-schemas.js';
 import { logFailedAuth, logSuccessAuth } from '../middleware/security-logger.js';
+import logger from '../config/logger.js';
 
 const router = express.Router();
 
@@ -23,34 +24,32 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
     const user = getUserByUsername(username);
 
     if (!user) {
-      console.log(`❌ User not found: "${username}"`);
+      // [SECURITY] P1.1 — Log structuré sans donnée sensible, via Winston uniquement
+      logger.warn('Authentication failed: user not found', { username });
       logFailedAuth(username, req.ip, 'User not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     if (!user.is_active) {
-      console.log(`❌ User inactive: "${username}"`);
+      // [SECURITY] P1.1 — Pas de console.log exposant l'état du compte
+      logger.warn('Authentication failed: account inactive', { username });
       logFailedAuth(username, req.ip, 'Account inactive');
       return res.status(401).json({ error: 'Account inactive' });
     }
 
-    // FIX: Utiliser 'password' au lieu de 'password_hash'
-    // car la colonne dans la BDD s'appelle 'password'
+    // Support colonne 'password' (ancienne migration) et 'password_hash' (nouvelle)
     const passwordHash = user.password || user.password_hash;
-    
+
     if (!passwordHash) {
-      console.error('❌ No password hash found for user');
+      // [SECURITY] P1.1 — Pas de détail technique exposé en console
+      logger.error('Authentication error: no password hash found', { userId: user.id });
       return res.status(500).json({ error: 'Authentication error' });
     }
 
-    console.log(`🔐 Validating password for user: "${username}"`);
-    console.log(`   Hash exists: ${!!passwordHash}`);
-    console.log(`   Hash length: ${passwordHash.length}`);
-    console.log(`   Password length: ${password.length}`);
-
+    // [SECURITY] P1.1 — SUPPRIMÉ: console.log("Hash length"), console.log("Password length"),
+    //             console.log("validation result") — ces informations sont exploitables
     const validPassword = await bcrypt.compare(password, passwordHash);
-    console.log(`🔑 Password validation result: ${validPassword}`);
-    
+
     if (!validPassword) {
       logFailedAuth(username, req.ip, 'Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -60,14 +59,15 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
     try {
       updateUser(user.id, { last_login: new Date().toISOString() });
     } catch (updateError) {
-      console.warn('⚠️ Failed to update last_login:', updateError.message);
+      logger.warn('Failed to update last_login', { userId: user.id, error: updateError.message });
       // Continue login even if update fails
     }
 
     const token = generateToken(user);
     logSuccessAuth(username, req.ip, user.id);
 
-    console.log(`✅ Login successful for user: "${username}" (${user.role})`);
+    // [SECURITY] P1.1 — Log structuré Winston uniquement, pas de console.log
+    logger.info('Login successful', { username, role: user.role });
 
     res.json({
       success: true,
@@ -80,9 +80,9 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
       }
     });
   } catch (error) {
-    console.error('❌ Login error:', error);
-    console.error('   Stack:', error.stack);
-    res.status(500).json({ error: 'Login failed', message: error.message });
+    // [SECURITY] P1.1 — En production, pas de stack trace exposée dans la réponse HTTP
+    logger.error('Login error', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -96,7 +96,8 @@ router.get('/verify', (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret-change-me');
+    // [SECURITY] P1.2 — JWT_SECRET validé au démarrage dans server.js, pas de fallback ici
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json({ valid: true, user: decoded });
   } catch (error) {
     res.status(401).json({ valid: false });
