@@ -176,15 +176,63 @@ class WebhookHandler {
 
   /**
    * Process webhook complet
+   *
+   * [SECURITY] P1.6 — Validation de la signature HMAC AVANT tout traitement.
+   *
+   * GitHub : HMAC-SHA256 envoyé dans le header 'x-hub-signature-256'.
+   *          La validation est effectuée avec le webhook_secret stocké en base.
+   *          Si le secret est configuré et que la signature est invalide/absente,
+   *          le webhook est REJETÉ avec un 401 (sans révéler pourquoi).
+   *
+   * GitLab : Token en clair dans le header 'x-gitlab-token'.
+   *          Comparaison via timingSafeEqual pour éviter les timing attacks.
+   *
+   * Si aucun secret n'est configuré pour le projet, le webhook est accepté
+   * (comportement permissif — à documenter et à durcir en production).
    */
   async processWebhook(provider, payload, headers, projectId) {
     try {
+      // 0. Récupérer la config webhook du projet EN PREMIER pour la validation
+      const config = this.getProjectWebhookConfig(projectId);
+
+      // [SECURITY] P1.6 — Validation de signature si un secret est configuré
+      if (config && config.webhook_secret) {
+        if (provider === 'github') {
+          const signature = headers['x-hub-signature-256'];
+          const isValid = this.validateGitHubSignature(payload, signature, config.webhook_secret);
+          if (!isValid) {
+            console.warn(`[SECURITY] Invalid GitHub webhook signature for project ${projectId}`);
+            // Réponse générique pour ne pas révéler si le secret est correct
+            return { success: false, error: 'Webhook validation failed' };
+          }
+        } else if (provider === 'gitlab') {
+          const token = headers['x-gitlab-token'];
+          const isValid = this.validateGitLabToken(token, config.webhook_secret);
+          if (!isValid) {
+            console.warn(`[SECURITY] Invalid GitLab webhook token for project ${projectId}`);
+            return { success: false, error: 'Webhook validation failed' };
+          }
+        }
+      } else if (config && !config.webhook_secret) {
+        // Secret non configuré : on accepte mais on avertit dans les logs
+        console.warn(`[SECURITY] Webhook for project ${projectId} has no secret configured. Consider adding one.`);
+      }
+
       // 1. Parser le webhook selon le provider
       let parsed;
       if (provider === 'github') {
-        parsed = this.parseGitHubWebhook(payload, headers);
+        // Parser avec le payload déjà parsé (req.body) converti en objet
+        try {
+          parsed = this.parseGitHubWebhook(JSON.parse(payload), headers);
+        } catch {
+          parsed = this.parseGitHubWebhook(payload, headers);
+        }
       } else if (provider === 'gitlab') {
-        parsed = this.parseGitLabWebhook(payload, headers);
+        try {
+          parsed = this.parseGitLabWebhook(JSON.parse(payload), headers);
+        } catch {
+          parsed = this.parseGitLabWebhook(payload, headers);
+        }
       } else {
         return { success: false, error: 'Unknown provider' };
       }
@@ -199,21 +247,17 @@ class WebhookHandler {
         return { success: false, error: 'Failed to save event' };
       }
 
-      // 3. Vérifier la configuration du projet
-      const config = this.getProjectWebhookConfig(projectId);
+      // 3. Pas de config = webhook enregistré mais pas de déploiement
       if (!config) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           message: 'Webhook received but no config found',
-          eventId: saved.id 
+          eventId: saved.id
         };
       }
 
       // 4. Vérifier si on doit déclencher un déploiement
-      const shouldDeploy = this.shouldTriggerDeployment(
-        config, 
-        parsed.data.branch
-      );
+      const shouldDeploy = this.shouldTriggerDeployment(config, parsed.data.branch);
 
       return {
         success: true,
