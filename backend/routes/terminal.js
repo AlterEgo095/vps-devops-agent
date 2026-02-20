@@ -11,7 +11,10 @@ import * as sshTerminal from '../services/ssh-terminal.js';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('FATAL: JWT_SECRET environment variable must be set and be at least 32 characters long');
+}
 
 // ============================================
 // FONCTION DE DÉCHIFFREMENT UNIVERSELLE
@@ -21,7 +24,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
  * Déchiffre un mot de passe selon son format
  * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
     if (!encryptedCredentials) {
         return '';
     }

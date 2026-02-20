@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-diagnostics-only-32chars';
 const DB_PATH = './data/devops-agent.db';
 
 console.log('🔍 DIAGNOSTIC COMPLET DE L\'AUTHENTIFICATION');

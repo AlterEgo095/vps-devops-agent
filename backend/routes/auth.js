@@ -23,13 +23,11 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
     const user = getUserByUsername(username);
 
     if (!user) {
-      console.log(`❌ User not found: "${username}"`);
       logFailedAuth(username, req.ip, 'User not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     if (!user.is_active) {
-      console.log(`❌ User inactive: "${username}"`);
       logFailedAuth(username, req.ip, 'Account inactive');
       return res.status(401).json({ error: 'Account inactive' });
     }
@@ -39,17 +37,11 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
     const passwordHash = user.password || user.password_hash;
     
     if (!passwordHash) {
-      console.error('❌ No password hash found for user');
+      console.error('Authentication error: no password hash for user');
       return res.status(500).json({ error: 'Authentication error' });
     }
 
-    console.log(`🔐 Validating password for user: "${username}"`);
-    console.log(`   Hash exists: ${!!passwordHash}`);
-    console.log(`   Hash length: ${passwordHash.length}`);
-    console.log(`   Password length: ${password.length}`);
-
     const validPassword = await bcrypt.compare(password, passwordHash);
-    console.log(`🔑 Password validation result: ${validPassword}`);
     
     if (!validPassword) {
       logFailedAuth(username, req.ip, 'Invalid password');
@@ -67,8 +59,6 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
     const token = generateToken(user);
     logSuccessAuth(username, req.ip, user.id);
 
-    console.log(`✅ Login successful for user: "${username}" (${user.role})`);
-
     res.json({
       success: true,
       token,
@@ -80,9 +70,8 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
       }
     });
   } catch (error) {
-    console.error('❌ Login error:', error);
-    console.error('   Stack:', error.stack);
-    res.status(500).json({ error: 'Login failed', message: error.message });
+    console.error('Login error:', error.message);
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -96,7 +85,7 @@ router.get('/verify', (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret-change-me');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json({ valid: true, user: decoded });
   } catch (error) {
     res.status(401).json({ valid: false });

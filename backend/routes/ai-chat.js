@@ -70,7 +70,7 @@ Réponse: {"command": "free -h", "explanation": "Affiche l'utilisation de la mé
 /**
  * Déchiffrement des credentials
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
     if (!encryptedCredentials) return '';
 
     if (encryptedCredentials.includes(':')) {

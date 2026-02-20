@@ -522,15 +522,20 @@ router.put('/payment-methods/:methodId', (req, res) => {
     const { methodId } = req.params;
     const updates = req.body;
     
-    // Build update query
+    // Whitelist allowed columns to prevent SQL injection via column names
+    const allowedFields = ['name', 'code', 'display_name', 'icon_url', 'requires_phone', 'country_codes', 'instructions', 'display_order', 'is_active'];
     const fields = [];
     const values = [];
     
     for (const [key, value] of Object.entries(updates)) {
-      if (key !== 'id') {
+      if (allowedFields.includes(key)) {
         fields.push(`${key} = ?`);
         values.push(value);
       }
+    }
+    
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
     }
     
     values.push(methodId);
@@ -587,15 +592,20 @@ router.put('/plans/:planId', (req, res) => {
     const { planId } = req.params;
     const updates = req.body;
     
-    // Build update query
+    // Whitelist allowed columns to prevent SQL injection via column names
+    const allowedFields = ['name', 'display_name', 'description', 'price_usd', 'price_cdf', 'max_ai_calls', 'max_tasks', 'max_storage_mb', 'max_projects', 'has_priority_support', 'has_advanced_analytics', 'has_custom_ai_keys', 'has_team_access', 'trial_days', 'display_order', 'is_active'];
     const fields = [];
     const values = [];
     
     for (const [key, value] of Object.entries(updates)) {
-      if (key !== 'id') {
+      if (allowedFields.includes(key)) {
         fields.push(`${key} = ?`);
         values.push(value);
       }
+    }
+    
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
     }
     
     values.push(planId);

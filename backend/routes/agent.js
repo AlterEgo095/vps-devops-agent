@@ -31,7 +31,7 @@ router.use(authenticateToken);
  * Déchiffre un mot de passe selon son format
  * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
+function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
     if (!encryptedCredentials) {
         return '';
     }
@@ -711,7 +711,7 @@ router.post('/servers/sync', async (req, res) => {
       // Mettre à jour le serveur existant
       const crypto = await import('crypto');
       const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
+      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       
@@ -744,7 +744,7 @@ router.post('/servers/sync', async (req, res) => {
       // Créer un nouveau serveur
       const crypto = await import('crypto');
       const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET || 'default-secret', 'salt', 32);
+      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv(algorithm, key, iv);
       

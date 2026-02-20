@@ -45,7 +45,7 @@ const __dirname = dirname(__filename);
 const app = express();
 app.set("trust proxy", true); // ✅ Faire confiance au proxy nginx pour obtenir la vraie IP
 // 🛡️ Rate limiting global pour toutes les routes API
-// app.use('/api/', apiLimiter);
+app.use('/api/', apiLimiter);
 const PORT = process.env.PORT || 4000;
 
 // Créer un serveur HTTP pour supporter WebSocket
@@ -86,7 +86,24 @@ app.use(compression({
   }
 }));
 
-app.use(cors());
+// 🔒 CORS - Restrict to allowed origins
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [`http://localhost:${process.env.PORT || 4000}`];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  credentials: true,
+  maxAge: 86400 // 24h preflight cache
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(validationFailureLogger);
 app.use(express.urlencoded({ extended: true }));
