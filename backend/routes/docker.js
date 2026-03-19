@@ -1,29 +1,27 @@
 import express from 'express';
 import dockerManager from '../services/docker-manager.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import { authenticateToken } from '../middleware/auth.js';
+import logger from '../config/logger.js';
 
 const router = express.Router();
 
-// Middleware d'authentification (utilisé sur toutes les routes)
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token manquant' });
-  }
-
-  // Vérification JWT (à adapter selon votre configuration)
-  try {
-    // req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch (err) {
-    return res.status(403).json({ error: 'Token invalide' });
-  }
-};
-
-// Appliquer l'authentification sur toutes les routes
+// ============================================================
+// [SECURITY] P0 — Auth JWT réelle sur TOUTES les routes Docker
+// Utilise le middleware centralisé auth.js (jwt.verify validé)
+// Suppression du faux middleware qui laissait passer tout le monde
+// ============================================================
 router.use(authenticateToken);
+
+// Middleware d'audit — log chaque action Docker avec l'utilisateur
+router.use((req, res, next) => {
+  logger.info(`[DOCKER] ${req.method} ${req.path}`, {
+    user: req.user?.username || 'unknown',
+    ip: req.ip,
+    action: `docker:${req.method.toLowerCase()}:${req.path}`
+  });
+  next();
+});
 
 // ==========================================
 // ROUTES GESTION DES CONTENEURS

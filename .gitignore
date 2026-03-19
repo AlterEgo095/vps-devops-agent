@@ -1,3 +1,7 @@
+# ============================================================
+# VPS DevOps Agent — .gitignore
+# ============================================================
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -6,7 +10,7 @@ yarn-error.log*
 package-lock.json
 .pnpm-debug.log*
 
-# Environment Variables
+# Environment Variables (NEVER commit)
 .env
 .env.local
 .env.*.local
@@ -18,11 +22,11 @@ package-lock.json
 *.sqlite3
 data/
 backend/database.sqlite
+backend/devops-agent.db
 
 # Logs
 logs/
 *.log
-npm-debug.log*
 pids/
 *.pid
 *.seed
@@ -37,13 +41,6 @@ lib-cov
 coverage/
 .nyc_output/
 
-# Tests
-tests/__pycache__/
-.pytest_cache/
-*.cover
-*.py,cover
-.hypothesis/
-
 # Build outputs
 dist/
 build/
@@ -56,14 +53,10 @@ build/
 *.swo
 *~
 .DS_Store
-.AppleDouble
-.LSOverride
 
 # OS
 Thumbs.db
-ehthumbs.db
 Desktop.ini
-$RECYCLE.BIN/
 
 # Backups
 *.backup
@@ -73,9 +66,8 @@ $RECYCLE.BIN/
 *.zip
 backups/
 .archives-backups-*/
-.archives-old-*/
 
-# Security
+# Security (NEVER commit)
 *.pem
 *.key
 *.crt
@@ -87,9 +79,20 @@ tmp/
 temp/
 *.tmp
 
-# Documentation (keep committed)
-!docs/
-
 # Configuration backups
 *.backup-*
 .env.backup-*
+
+# Test/debug files that should never be deployed
+*.disabled-*
+*.clean
+*.before-*
+*.with-*
+
+# Python artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Archived docs (keep in git for history but not in root)
+# docs/archive/ is kept for reference

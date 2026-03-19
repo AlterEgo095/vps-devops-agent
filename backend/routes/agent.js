@@ -9,6 +9,9 @@ import { db } from '../services/database-sqlite.js';
 import * as executor from '../services/agent-executor.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
+import { encryptPassword, decryptPassword } from '../services/crypto-manager.js';
+import { validateCommand } from '../services/command-guard.js';
+import logger from '../config/logger.js';
 import { 
   createServerSchema, 
   updateServerSchema, 
@@ -22,44 +25,6 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
-
-// ============================================
-// FONCTION DE DÉCHIFFREMENT UNIVERSELLE
-// ============================================
-
-/**
- * Déchiffre un mot de passe selon son format
- * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
- */
-// [SECURITY] P1.2 — Suppression du fallback 'default-secret'. JWT_SECRET validé au boot.
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
-    if (!encryptedCredentials) {
-        return '';
-    }
-
-    // Détecter le format : AES-256-CBC utilise "IV:encrypted_data"
-    if (encryptedCredentials.includes(':')) {
-        try {
-            // Format AES-256-CBC (nouveau format depuis /sync)
-            const [ivHex, encryptedHex] = encryptedCredentials.split(':');
-            const iv = Buffer.from(ivHex, 'hex');
-            const key = crypto.scryptSync(secret, 'salt', 32);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            
-            let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-            decrypted += decipher.final('utf8');
-            
-            return decrypted;
-        } catch (error) {
-            console.error('Erreur déchiffrement AES-256-CBC:', error.message);
-            // Fallback vers Base64 si erreur
-            return Buffer.from(encryptedCredentials, 'base64').toString();
-        }
-    } else {
-        // Format Base64 (ancien format)
-        return Buffer.from(encryptedCredentials, 'base64').toString();
-    }
-}
 
 
 // ============================================
@@ -115,8 +80,8 @@ router.post('/servers', validateBody(createServerSchema), async (req, res) => {
             });
         }
         
-        // Encryption simple (à améliorer en production avec crypto)
-        const encryptedCredentials = Buffer.from(password || '').toString('base64');
+        // [SECURITY] P1 — Chiffrement AES-256-CBC via crypto-manager centralisé
+        const encryptedCredentials = encryptPassword(password || '');
         
         const stmt = db.prepare(`
             INSERT INTO servers (
@@ -180,7 +145,7 @@ router.put('/servers/:id', validateParams(idParamSchema), validateBody(updateSer
         if (description !== undefined) { updates.push('description = ?'); values.push(description); }
         if (password) {
             updates.push('encrypted_credentials = ?');
-            values.push(Buffer.from(password).toString('base64'));
+            values.push(encryptPassword(password));
         }
         
         values.push(serverId, userId);
@@ -260,8 +225,8 @@ router.post('/servers/:id/test', async (req, res) => {
             });
         }
         
-        // Décrypter le mot de passe
-        server.decrypted_password = Buffer.from(server.encrypted_credentials || '', 'base64').toString();
+        // [SECURITY] P1 — Déchiffrement centralisé (supporte AES + rétro Base64)
+        server.decrypted_password = decryptPassword(server.encrypted_credentials);
         
         const testResult = await executor.testServerConnection(server);
         
@@ -305,8 +270,8 @@ router.get('/servers/:id/metrics', async (req, res) => {
             });
         }
         
-        // Décrypter le mot de passe
-        server.decrypted_password = Buffer.from(server.encrypted_credentials || '', 'base64').toString();
+        // [SECURITY] P1 — Déchiffrement centralisé (supporte AES + rétro Base64)
+        server.decrypted_password = decryptPassword(server.encrypted_credentials);
         
         const metrics = await executor.collectServerMetrics(server);
         
@@ -436,6 +401,23 @@ router.post('/execute', validateBody(executeMultiServerCommandSchema), async (re
             });
         }
         
+        // [SECURITY] P1 — CommandGuard : Validation AVANT exécution
+        const allowGraylist = req.body.confirmed === true;
+        const guardResult = validateCommand(command, { 
+            allowGraylist, 
+            userId: req.user.id 
+        });
+        
+        if (!guardResult.allowed) {
+            return res.status(403).json({
+                success: false,
+                error: guardResult.reason,
+                level: guardResult.level,
+                warnings: guardResult.warnings,
+                requires_confirmation: guardResult.level === 'NEEDS_CONFIRMATION'
+            });
+        }
+        
         // Récupérer les serveurs
         const placeholders = serverIds.map(() => '?').join(',');
         const servers = db.prepare(`
@@ -511,6 +493,23 @@ router.post('/ai/agent/execute-command', validateBody(executeCommandSchema), asy
             });
         }
         
+        // [SECURITY] P1 — CommandGuard : Validation AVANT exécution
+        const allowGraylist = req.body.confirmed === true;
+        const guardResult = validateCommand(command, { 
+            allowGraylist, 
+            userId: req.user.id 
+        });
+        
+        if (!guardResult.allowed) {
+            return res.status(403).json({
+                success: false,
+                error: guardResult.reason,
+                level: guardResult.level,
+                warnings: guardResult.warnings,
+                requires_confirmation: guardResult.level === 'NEEDS_CONFIRMATION'
+            });
+        }
+        
         // Récupérer le serveur
         const server = db.prepare(`
             SELECT * FROM servers 
@@ -583,6 +582,23 @@ router.post('/ai/agent/execute_command', validateBody(executeCommandSchema), asy
             return res.status(400).json({
                 success: false,
                 error: 'Command is required'
+            });
+        }
+        
+        // [SECURITY] P1 — CommandGuard : Validation AVANT exécution
+        const allowGraylist2 = req.body.confirmed === true;
+        const guardResult2 = validateCommand(command, { 
+            allowGraylist: allowGraylist2, 
+            userId: req.user.id 
+        });
+        
+        if (!guardResult2.allowed) {
+            return res.status(403).json({
+                success: false,
+                error: guardResult2.reason,
+                level: guardResult2.level,
+                warnings: guardResult2.warnings,
+                requires_confirmation: guardResult2.level === 'NEEDS_CONFIRMATION'
             });
         }
         
@@ -711,16 +727,8 @@ router.post('/servers/sync', async (req, res) => {
     `).get(host, port || 22, username, userId);
 
     if (existing) {
-      // Mettre à jour le serveur existant
-      const crypto = await import('crypto');
-      const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(algorithm, key, iv);
-      
-      let encryptedPassword = cipher.update(password, 'utf8', 'hex');
-      encryptedPassword += cipher.final('hex');
-      const encryptedCredentials = `${iv.toString('hex')}:${encryptedPassword}`;
+      // [SECURITY] P1 — Chiffrement centralisé via crypto-manager
+      const encryptedCredentials = encryptPassword(password);
 
       db.prepare(`
         UPDATE servers 
@@ -744,16 +752,8 @@ router.post('/servers/sync', async (req, res) => {
         action: 'updated'
       });
     } else {
-      // Créer un nouveau serveur
-      const crypto = await import('crypto');
-      const algorithm = 'aes-256-cbc';
-      const key = crypto.scryptSync(process.env.JWT_SECRET, 'salt', 32);
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(algorithm, key, iv);
-      
-      let encryptedPassword = cipher.update(password, 'utf8', 'hex');
-      encryptedPassword += cipher.final('hex');
-      const encryptedCredentials = `${iv.toString('hex')}:${encryptedPassword}`;
+      // [SECURITY] P1 — Chiffrement centralisé via crypto-manager
+      const encryptedCredentials = encryptPassword(password);
 
       const result = db.prepare(`
         INSERT INTO servers (

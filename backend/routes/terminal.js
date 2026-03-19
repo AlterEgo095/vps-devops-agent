@@ -4,53 +4,16 @@
  */
 
 import express from 'express';
-import crypto from 'crypto';
 import { WebSocketServer } from 'ws';
 import { db } from '../services/database-sqlite.js';
 import * as sshTerminal from '../services/ssh-terminal.js';
+import { decryptPassword } from '../services/crypto-manager.js';
 import jwt from 'jsonwebtoken';
+import logger from '../config/logger.js';
 
 const router = express.Router();
 // [SECURITY] P1.2 — Plus de fallback hardcodé. JWT_SECRET validé au boot.
 const JWT_SECRET = process.env.JWT_SECRET;
-
-// ============================================
-// FONCTION DE DÉCHIFFREMENT UNIVERSELLE
-// ============================================
-
-/**
- * Déchiffre un mot de passe selon son format
- * Supporte Base64 (ancien) et AES-256-CBC (nouveau depuis /sync)
- */
-// [SECURITY] P1.2 — Suppression du fallback 'default-secret'. JWT_SECRET validé au boot.
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET) {
-    if (!encryptedCredentials) {
-        return '';
-    }
-
-    // Détecter le format : AES-256-CBC utilise "IV:encrypted_data"
-    if (encryptedCredentials.includes(':')) {
-        try {
-            // Format AES-256-CBC (nouveau format depuis /sync)
-            const [ivHex, encryptedHex] = encryptedCredentials.split(':');
-            const iv = Buffer.from(ivHex, 'hex');
-            const key = crypto.scryptSync(secret, 'salt', 32);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            
-            let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-            decrypted += decipher.final('utf8');
-            
-            return decrypted;
-        } catch (error) {
-            console.error('Erreur déchiffrement AES-256-CBC:', error.message);
-            // Fallback vers Base64 si erreur
-            return Buffer.from(encryptedCredentials, 'base64').toString();
-        }
-    } else {
-        // Format Base64 (ancien format)
-        return Buffer.from(encryptedCredentials, 'base64').toString();
-    }
-}
 
 
 /**
