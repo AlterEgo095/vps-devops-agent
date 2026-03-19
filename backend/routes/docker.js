@@ -42,7 +42,7 @@ router.get('/containers', cacheMiddleware(5), async (req, res) => {
       containers
     });
   } catch (error) {
-    console.error('Erreur listContainers:', error);
+    logger.error('Erreur listContainers:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -63,7 +63,7 @@ router.get('/containers/:id', async (req, res) => {
       container: details
     });
   } catch (error) {
-    console.error('Erreur getContainerDetails:', error);
+    logger.error('Erreur getContainerDetails:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -84,7 +84,7 @@ router.get('/containers/:id/stats', async (req, res) => {
       stats
     });
   } catch (error) {
-    console.error('Erreur getContainerStats:', error);
+    logger.error('Erreur getContainerStats:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -106,7 +106,7 @@ router.get('/containers/:id/logs', async (req, res) => {
       logs
     });
   } catch (error) {
-    console.error('Erreur getContainerLogs:', error);
+    logger.error('Erreur getContainerLogs:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -147,7 +147,7 @@ router.post('/containers', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur createContainer:', error);
+    logger.error('Erreur createContainer:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -168,7 +168,7 @@ router.post('/containers/:id/start', async (req, res) => {
       message: 'Conteneur démarré'
     });
   } catch (error) {
-    console.error('Erreur startContainer:', error);
+    logger.error('Erreur startContainer:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -190,7 +190,7 @@ router.post('/containers/:id/stop', async (req, res) => {
       message: 'Conteneur arrêté'
     });
   } catch (error) {
-    console.error('Erreur stopContainer:', error);
+    logger.error('Erreur stopContainer:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -211,7 +211,7 @@ router.post('/containers/:id/restart', async (req, res) => {
       message: 'Conteneur redémarré'
     });
   } catch (error) {
-    console.error('Erreur restartContainer:', error);
+    logger.error('Erreur restartContainer:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -233,7 +233,7 @@ router.delete('/containers/:id', async (req, res) => {
       message: 'Conteneur supprimé'
     });
   } catch (error) {
-    console.error('Erreur removeContainer:', error);
+    logger.error('Erreur removeContainer:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -258,7 +258,7 @@ router.get('/images', async (req, res) => {
       images
     });
   } catch (error) {
-    console.error('Erreur listImages:', error);
+    logger.error('Erreur listImages:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -288,7 +288,7 @@ router.post('/images/pull', async (req, res) => {
       message: `Image ${image} téléchargée avec succès`
     });
   } catch (error) {
-    console.error('Erreur pullImage:', error);
+    logger.error('Erreur pullImage:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -310,7 +310,7 @@ router.delete('/images/:id', async (req, res) => {
       message: 'Image supprimée'
     });
   } catch (error) {
-    console.error('Erreur removeImage:', error);
+    logger.error('Erreur removeImage:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -347,7 +347,7 @@ router.post('/generate/dockerfile', async (req, res) => {
       dockerfile
     });
   } catch (error) {
-    console.error('Erreur generateDockerfile:', error);
+    logger.error('Erreur generateDockerfile:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -383,7 +383,7 @@ router.post('/generate/compose', async (req, res) => {
       compose
     });
   } catch (error) {
-    console.error('Erreur generateDockerCompose:', error);
+    logger.error('Erreur generateDockerCompose:', { error: error.message });
     res.status(500).json({
       success: false,
       error: error.message
@@ -414,7 +414,7 @@ router.get('/health', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erreur Docker health:', error);
+    logger.error('Erreur Docker health:', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Docker non accessible: ' + error.message

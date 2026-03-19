@@ -91,7 +91,7 @@ const __dirname = dirname(__filename);
 const app = express();
 app.set("trust proxy", true); // ✅ Faire confiance au proxy nginx pour obtenir la vraie IP
 // 🛡️ Rate limiting global pour toutes les routes API
-// app.use('/api/', apiLimiter);
+app.use('/api/', apiLimiter);
 const PORT = process.env.PORT || 4000;
 
 // Créer un serveur HTTP pour supporter WebSocket
@@ -106,7 +106,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "'unsafe-hashes'", "cdn.jsdelivr.net", "cdn.tailwindcss.com", "cdnjs.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdn.tailwindcss.com", "cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "ws:", "wss:"],
       fontSrc: ["'self'", "data:", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -132,7 +132,25 @@ app.use(compression({
   }
 }));
 
-app.use(cors());
+// [SECURITY] CORS configuré — restreint en production
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:4000', 'http://localhost:8080']);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Autoriser les requêtes sans origin (curl, Postman, même serveur)
+    if (!origin) return callback(null, true);
+    // En production, si ALLOWED_ORIGINS est vide, autoriser le même domaine
+    if (ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('CORS non autorisé'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(validationFailureLogger);
 app.use(express.urlencoded({ extended: true }));

@@ -9,6 +9,7 @@ import { db } from '../services/database-sqlite.js';
 import * as sshTerminal from '../services/ssh-terminal.js';
 import { decryptPassword } from '../services/crypto-manager.js';
 import jwt from 'jsonwebtoken';
+import { authenticateToken } from '../middleware/auth.js';
 import logger from '../config/logger.js';
 
 const router = express.Router();
@@ -19,8 +20,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 /**
  * GET /api/terminal/sessions
  * Récupère la liste des sessions SSH actives
+ * [SECURITY] P3 — Auth requise pour lister les sessions
  */
-router.get('/sessions', (req, res) => {
+router.get('/sessions', authenticateToken, (req, res) => {
     try {
         const sessions = sshTerminal.getActiveSessions();
         res.json({
@@ -29,7 +31,7 @@ router.get('/sessions', (req, res) => {
             count: sessions.length
         });
     } catch (error) {
-        console.error('Error getting sessions:', error);
+        logger.error('Error getting sessions:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to get sessions'
@@ -47,10 +49,10 @@ export function initializeWebSocket(server) {
         path: '/api/terminal/ws'
     });
 
-    console.log('WebSocket server initialized at /api/terminal/ws');
+    logger.info('WebSocket server initialized at /api/terminal/ws');
 
     wss.on('connection', (ws, req) => {
-        console.log('New WebSocket connection attempt');
+        logger.info('New WebSocket connection attempt');
 
         let sessionId = null;
         let authenticated = false;
@@ -67,14 +69,14 @@ export function initializeWebSocket(server) {
                         const decoded = jwt.verify(data.token, JWT_SECRET);
                         authenticated = true;
                         
-                        console.log(`WebSocket authenticated for user: ${decoded.username}`);
+                        logger.info(`WebSocket authenticated for user: ${decoded.username}`);
                         
                         ws.send(JSON.stringify({
                             type: 'auth_success',
                             message: 'Authentication successful'
                         }));
                     } catch (error) {
-                        console.error('WebSocket authentication failed:', error);
+                        logger.warn('WebSocket authentication failed:', { error: error.message });
                         ws.send(JSON.stringify({
                             type: 'auth_error',
                             message: 'Authentication failed'
@@ -134,7 +136,7 @@ export function initializeWebSocket(server) {
                     }
                     
                     // Créer la session SSH
-                    console.log(`Creating SSH session to ${serverConfig.host}:${serverConfig.port}`);
+                    logger.info(`Creating SSH session to ${serverConfig.host}:${serverConfig.port}`);
                     sshTerminal.createSSHSession(sessionId, serverConfig, ws);
                 }
                 
@@ -173,7 +175,7 @@ export function initializeWebSocket(server) {
                 }
                 
             } catch (error) {
-                console.error('Error handling WebSocket message:', error);
+                logger.error('Error handling WebSocket message:', { error: error.message });
                 ws.send(JSON.stringify({
                     type: 'error',
                     message: error.message
@@ -183,7 +185,7 @@ export function initializeWebSocket(server) {
 
         // Gérer la fermeture de connexion
         ws.on('close', () => {
-            console.log(`WebSocket closed${sessionId ? ` for session ${sessionId}` : ''}`);
+            logger.info(`WebSocket closed${sessionId ? ` for session ${sessionId}` : ''}`);
             if (sessionId) {
                 sshTerminal.closeSSHSession(sessionId);
             }
@@ -191,7 +193,7 @@ export function initializeWebSocket(server) {
 
         // Gérer les erreurs
         ws.on('error', (error) => {
-            console.error('WebSocket error:', error);
+            logger.error('WebSocket error:', { error: error.message });
             if (sessionId) {
                 sshTerminal.closeSSHSession(sessionId);
             }
