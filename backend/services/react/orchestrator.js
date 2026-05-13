@@ -11,8 +11,15 @@
  *
  * Max 10 iterations. Self-corrects on failure.
  *
+ * v3.0.0 — Upgraded with:
+ *   - RAG context injection for infrastructure awareness
+ *   - Upgraded system prompt with decision framework & risk categories
+ *   - Streaming/SSE support via onProgress callback
+ *   - RAG context injection on resumeAfterApproval
+ *   - stop() method for graceful execution termination
+ *
  * @module ReactOrchestrator
- * @version 2.1.0
+ * @version 3.0.0
  */
 
 import logger from '../../config/logger.js';
@@ -23,23 +30,34 @@ import { default as approvalManager } from '../approvals/manager.js';
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
-const REACT_SYSTEM_PROMPT = `You are an AI DevOps agent using a ReAct (Reasoning + Acting) loop.
+const REACT_SYSTEM_PROMPT = `You are an AI DevOps agent operating a remote VPS server. You MUST use the provided tools to perform ALL actions. NEVER output raw shell commands as text — always use the function calling tools provided.
 
+## Decision Framework:
+1. FIRST: Use rag_query to understand the current infrastructure state before making any changes
+2. For READ operations: Use specific read tools (docker_ps, service_status, disk_usage, etc.)
+3. For WRITE operations: Use specific write tools (docker_container_manage, nginx_config_write, env_write, etc.)
+4. For EMERGENCIES ONLY: Use shell_exec as a last resort (requires approval)
+
+## Tool Categories by Risk:
+- SAFE (auto-execute): docker_ps, docker_logs, service_status, nginx_test, pm2_list, disk_usage, memory_info, network_info, process_list, file_read, env_read, rag_query, log_read, firewall_status, ssl_cert_check, cron_list, nginx_config_read
+- MODERATE (auto-execute with logging): docker_container_manage, docker_compose, nginx_reload, nginx_config_write, pm2_restart, file_write, env_write, systemctl, apt_install, apt_manage, service_manage, cron_manage, user_manage, backup_create, file_manage, firewall_manage, git_ops
+- CRITICAL (requires human approval): shell_exec, certbot_manage, swap_manage
+
+## ReAct Loop:
 For each iteration:
-1. OBSERVE: Review the current state and any previous action results
-2. THINK: Decide what to do next based on your observations
-3. ACT: Call a tool to perform an action
+1. OBSERVE: Review the current state and previous action results
+2. THINK: Decide what to do next based on observations
+3. ACT: Call the most specific tool available for the task
 4. VERIFY: Check if the action achieved the desired result
 
 IMPORTANT RULES:
-- Always use the provided tools (function calling) to perform actions — never output raw shell commands as text
+- Always prefer specific tools over shell_exec
 - Always verify actions before moving on
 - If an action fails, analyze the error and try a different approach
-- If you determine the task is complete, respond with your final answer directly (do not call any tool)
+- If the task is complete, respond with your final answer directly
 - Maximum ${DEFAULT_MAX_ITERATIONS} iterations — be efficient
 - For CRITICAL operations, approval will be needed from a human
-- Git checkpoints are created automatically before file modifications
-- Use rag_query tool first to understand the current infrastructure state before making changes`;
+- Git checkpoints are created automatically before file modifications`;
 
 class ReactOrchestrator {
   constructor() {
@@ -75,10 +93,46 @@ class ReactOrchestrator {
   }
 
   /**
+   * Inject RAG context into the scratchpad for infrastructure awareness
+   * @param {Array} scratchpad - The scratchpad to inject into
+   * @param {string} userRequest - The user's request to search against
+   * @param {Object} context - Execution context (must include serverId)
+   * @returns {Promise<boolean>} Whether RAG context was successfully injected
+   */
+  async _injectRAGContext(scratchpad, userRequest, context) {
+    try {
+      const { knowledgeRetriever } = await import('../rag/index.js');
+      const ragResult = await knowledgeRetriever.search(userRequest, {
+        serverId: context.serverId,
+        maxResults: 5
+      });
+      if (ragResult.context) {
+        scratchpad.push({
+          phase: 'observation',
+          content: `Infrastructure Context from Knowledge Base:\n${ragResult.context.substring(0, 3000)}`,
+          timestamp: new Date().toISOString()
+        });
+        logger.info('[ReAct] RAG context injected into scratchpad', {
+          serverId: context.serverId,
+          contextLength: ragResult.context.substring(0, 3000).length
+        });
+        return true;
+      }
+    } catch (ragError) {
+      // RAG not available, continue without context
+      logger.debug('[ReAct] RAG context not available, continuing without it', {
+        error: ragError.message
+      });
+    }
+    return false;
+  }
+
+  /**
    * Execute a ReAct loop
    * @param {string} userRequest - Natural language user request
    * @param {Object} serverConfig - SSH connection config
    * @param {Object} context - Additional context
+   * @param {Function} [context.onProgress] - Optional callback for streaming progress updates
    * @returns {Promise<Object>} Execution result
    */
   async execute(userRequest, serverConfig, context = {}) {
@@ -91,8 +145,18 @@ class ReactOrchestrator {
 
     const startTime = Date.now();
 
+    // Progress reporting helper
+    const reportProgress = (data) => {
+      if (context.onProgress && typeof context.onProgress === 'function') {
+        context.onProgress(data);
+      }
+    };
+
     // Create execution record
     const executionId = await this._createExecution(userRequest, context);
+
+    // Register as active execution
+    this.activeExecutions.set(executionId, { stopped: false, startTime });
 
     // Initialize scratchpad
     const scratchpad = [];
@@ -104,15 +168,63 @@ class ReactOrchestrator {
       timestamp: new Date().toISOString()
     });
 
+    reportProgress({
+      type: 'execution_start',
+      executionId,
+      userRequest: userRequest.substring(0, 200),
+      timestamp: new Date().toISOString()
+    });
+
+    // Auto-inject RAG context for infrastructure awareness
+    await this._injectRAGContext(scratchpad, userRequest, context);
+
     logger.info(`[ReAct] Starting execution ${executionId} for: "${userRequest.substring(0, 100)}"`);
 
     try {
       for (let i = 0; i < maxIterations; i++) {
+        // Check if execution was stopped
+        if (this.activeExecutions.get(executionId)?.stopped) {
+          logger.info(`[ReAct] Execution ${executionId} stopped by user at iteration ${i + 1}`);
+          await this._failExecution(executionId, 'Execution stopped by user');
+
+          reportProgress({
+            type: 'execution_stopped',
+            executionId,
+            iteration: i + 1,
+            timestamp: new Date().toISOString()
+          });
+
+          return {
+            success: false,
+            status: 'stopped',
+            iterations: i + 1,
+            executionId,
+            message: 'Execution was stopped by user'
+          };
+        }
+
+        reportProgress({
+          type: 'iteration_start',
+          executionId,
+          iteration: i + 1,
+          maxIterations,
+          timestamp: new Date().toISOString()
+        });
+
         // THOUGHT: Generate reasoning and next action
         const thoughtResult = await this._generateThought(scratchpad, serverConfig, context);
 
         if (!thoughtResult.success) {
           await this._failExecution(executionId, thoughtResult.error);
+
+          reportProgress({
+            type: 'error',
+            executionId,
+            iteration: i + 1,
+            error: thoughtResult.error,
+            timestamp: new Date().toISOString()
+          });
+
           return {
             success: false,
             error: thoughtResult.error,
@@ -131,10 +243,28 @@ class ReactOrchestrator {
 
         await this._logIteration(executionId, i + 1, 'thought', thought.thought);
 
+        reportProgress({
+          type: 'thought',
+          executionId,
+          iteration: i + 1,
+          thought: thought.thought,
+          hasAction: !!(thought.action),
+          timestamp: new Date().toISOString()
+        });
+
         // Check if task is complete
         if (thought.is_complete || !thought.action) {
           const durationMs = Date.now() - startTime;
           await this._completeExecution(executionId, thought.final_answer || thought.thought, i + 1, durationMs);
+
+          reportProgress({
+            type: 'execution_complete',
+            executionId,
+            iterations: i + 1,
+            durationMs,
+            finalAnswer: (thought.final_answer || thought.thought)?.substring(0, 500),
+            timestamp: new Date().toISOString()
+          });
 
           return {
             success: true,
@@ -189,6 +319,16 @@ class ReactOrchestrator {
               iteration: i + 1
             });
 
+            reportProgress({
+              type: 'approval_needed',
+              executionId,
+              iteration: i + 1,
+              approvalId: approvalResult.approvalId,
+              toolName,
+              riskLevel: tool.risk_level,
+              timestamp: new Date().toISOString()
+            });
+
             return {
               success: false,
               status: 'awaiting_approval',
@@ -231,6 +371,16 @@ class ReactOrchestrator {
           `Called ${toolName}`, toolName, toolArgs, actionResult
         );
 
+        reportProgress({
+          type: 'action_result',
+          executionId,
+          iteration: i + 1,
+          toolName,
+          success: actionResult.success,
+          error: actionResult.success ? undefined : actionResult.error?.substring(0, 500),
+          timestamp: new Date().toISOString()
+        });
+
         // Rollback on failure if checkpoint exists
         if (!actionResult.success && checkpointResult && checkpointResult.commitHash) {
           logger.warn(`[ReAct] Action failed, rolling back checkpoint ${checkpointResult.commitHash?.substring(0, 8)}`);
@@ -259,6 +409,14 @@ class ReactOrchestrator {
       const durationMs = Date.now() - startTime;
       await this._failExecution(executionId, 'Maximum iterations reached without completion');
 
+      reportProgress({
+        type: 'max_iterations',
+        executionId,
+        iterations: maxIterations,
+        durationMs,
+        timestamp: new Date().toISOString()
+      });
+
       return {
         success: false,
         status: 'max_iterations',
@@ -272,11 +430,21 @@ class ReactOrchestrator {
       logger.error('[ReAct] Execution error:', { error: error.message });
       await this._failExecution(executionId, error.message);
 
+      reportProgress({
+        type: 'execution_error',
+        executionId,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+
       return {
         success: false,
         error: error.message,
         executionId
       };
+    } finally {
+      // Clean up active execution entry
+      this.activeExecutions.delete(executionId);
     }
   }
 
@@ -285,9 +453,17 @@ class ReactOrchestrator {
    * @param {string} approvalId - The approval that was granted
    * @param {Object} serverConfig - SSH connection config
    * @param {Object} context - Additional context
+   * @param {Function} [context.onProgress] - Optional callback for streaming progress updates
    * @returns {Promise<Object>} Execution result
    */
   async resumeAfterApproval(approvalId, serverConfig, context = {}) {
+    // Progress reporting helper
+    const reportProgress = (data) => {
+      if (context.onProgress && typeof context.onProgress === 'function') {
+        context.onProgress(data);
+      }
+    };
+
     try {
       // Get the approval
       const approval = approvalManager.getById(approvalId);
@@ -316,6 +492,24 @@ class ReactOrchestrator {
         iteration: iterations.length
       });
 
+      // Inject RAG context after approval for fresh infrastructure awareness
+      const userRequest = execution.user_request || '';
+      await this._injectRAGContext(scratchpad, userRequest, {
+        ...context,
+        serverId: context.serverId || approval.server_id
+      });
+
+      reportProgress({
+        type: 'approval_resumed',
+        approvalId,
+        executionId: approval.execution_id,
+        toolName: approval.tool_name,
+        timestamp: new Date().toISOString()
+      });
+
+      // Re-register as active execution for stop support
+      this.activeExecutions.set(approval.execution_id, { stopped: false, startTime: Date.now() });
+
       // Execute the approved tool
       const toolArgs = JSON.parse(approval.tool_args);
       const actionResult = await toolExecutor.execute(approval.tool_name, toolArgs, serverConfig, {
@@ -342,6 +536,16 @@ class ReactOrchestrator {
         actionResult
       );
 
+      reportProgress({
+        type: 'action_result',
+        executionId: approval.execution_id,
+        iteration: iterations.length + 1,
+        toolName: approval.tool_name,
+        success: actionResult.success,
+        error: actionResult.success ? undefined : actionResult.error?.substring(0, 500),
+        timestamp: new Date().toISOString()
+      });
+
       // Add observation from the approved action result
       const observationContent = this._formatObservation(actionResult);
       scratchpad.push({
@@ -357,8 +561,32 @@ class ReactOrchestrator {
       return this._continueLoop(approval.execution_id, scratchpad, serverConfig, context, maxRemaining);
     } catch (error) {
       logger.error('[ReAct] Resume after approval failed:', { error: error.message });
+
+      reportProgress({
+        type: 'execution_error',
+        approvalId,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+
       return { success: false, error: error.message };
     }
+  }
+
+  /**
+   * Stop a running execution
+   * @param {string|number} executionId - The execution ID to stop
+   * @returns {boolean} Whether the stop request was acknowledged
+   */
+  stop(executionId) {
+    const exec = this.activeExecutions.get(executionId);
+    if (exec) {
+      exec.stopped = true;
+      logger.info(`[ReAct] Stop requested for execution ${executionId}`);
+      return true;
+    }
+    logger.warn(`[ReAct] Stop requested for unknown execution ${executionId}`);
+    return false;
   }
 
   /**
@@ -372,6 +600,13 @@ class ReactOrchestrator {
    */
   async _continueLoop(executionId, scratchpad, serverConfig, context, maxRemaining) {
     const startTime = Date.now();
+
+    // Progress reporting helper
+    const reportProgress = (data) => {
+      if (context.onProgress && typeof context.onProgress === 'function') {
+        context.onProgress(data);
+      }
+    };
 
     if (maxRemaining <= 0) {
       await this._failExecution(executionId, 'Maximum iterations reached during resume');
@@ -387,11 +622,49 @@ class ReactOrchestrator {
       for (let i = 0; i < maxRemaining; i++) {
         const globalIteration = scratchpad.length + i + 1;
 
+        // Check if execution was stopped
+        if (this.activeExecutions.get(executionId)?.stopped) {
+          logger.info(`[ReAct] Execution ${executionId} stopped by user at continuation iteration ${i + 1}`);
+          await this._failExecution(executionId, 'Execution stopped by user');
+
+          reportProgress({
+            type: 'execution_stopped',
+            executionId,
+            iteration: globalIteration,
+            timestamp: new Date().toISOString()
+          });
+
+          return {
+            success: false,
+            status: 'stopped',
+            iterations: globalIteration,
+            executionId,
+            message: 'Execution was stopped by user'
+          };
+        }
+
+        reportProgress({
+          type: 'iteration_start',
+          executionId,
+          iteration: globalIteration,
+          maxRemaining,
+          timestamp: new Date().toISOString()
+        });
+
         // THOUGHT
         const thoughtResult = await this._generateThought(scratchpad, serverConfig, context);
 
         if (!thoughtResult.success) {
           await this._failExecution(executionId, thoughtResult.error);
+
+          reportProgress({
+            type: 'error',
+            executionId,
+            iteration: globalIteration,
+            error: thoughtResult.error,
+            timestamp: new Date().toISOString()
+          });
+
           return { success: false, error: thoughtResult.error, iterations: globalIteration, executionId };
         }
 
@@ -405,10 +678,28 @@ class ReactOrchestrator {
 
         await this._logIteration(executionId, globalIteration, 'thought', thought.thought);
 
+        reportProgress({
+          type: 'thought',
+          executionId,
+          iteration: globalIteration,
+          thought: thought.thought,
+          hasAction: !!(thought.action),
+          timestamp: new Date().toISOString()
+        });
+
         // Check if task is complete
         if (thought.is_complete || !thought.action) {
           const durationMs = Date.now() - startTime;
           await this._completeExecution(executionId, thought.final_answer || thought.thought, globalIteration, durationMs);
+
+          reportProgress({
+            type: 'execution_complete',
+            executionId,
+            iterations: globalIteration,
+            durationMs,
+            finalAnswer: (thought.final_answer || thought.thought)?.substring(0, 500),
+            timestamp: new Date().toISOString()
+          });
 
           return {
             success: true,
@@ -462,6 +753,16 @@ class ReactOrchestrator {
               iteration: globalIteration
             });
 
+            reportProgress({
+              type: 'approval_needed',
+              executionId,
+              iteration: globalIteration,
+              approvalId: approvalResult.approvalId,
+              toolName,
+              riskLevel: tool.risk_level,
+              timestamp: new Date().toISOString()
+            });
+
             return {
               success: false,
               status: 'awaiting_approval',
@@ -498,6 +799,16 @@ class ReactOrchestrator {
           `Called ${toolName}`, toolName, toolArgs, actionResult
         );
 
+        reportProgress({
+          type: 'action_result',
+          executionId,
+          iteration: globalIteration,
+          toolName,
+          success: actionResult.success,
+          error: actionResult.success ? undefined : actionResult.error?.substring(0, 500),
+          timestamp: new Date().toISOString()
+        });
+
         // Rollback on failure
         if (!actionResult.success && checkpointResult && checkpointResult.commitHash) {
           logger.warn(`[ReAct] Action failed, rolling back checkpoint ${checkpointResult.commitHash?.substring(0, 8)}`);
@@ -524,6 +835,13 @@ class ReactOrchestrator {
 
       // Max remaining iterations reached
       await this._failExecution(executionId, 'Maximum iterations reached during resume');
+
+      reportProgress({
+        type: 'max_iterations',
+        executionId,
+        timestamp: new Date().toISOString()
+      });
+
       return {
         success: false,
         status: 'max_iterations',
@@ -534,7 +852,18 @@ class ReactOrchestrator {
     } catch (error) {
       logger.error('[ReAct] Continue loop error:', { error: error.message });
       await this._failExecution(executionId, error.message);
+
+      reportProgress({
+        type: 'execution_error',
+        executionId,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+
       return { success: false, error: error.message, executionId };
+    } finally {
+      // Clean up active execution entry
+      this.activeExecutions.delete(executionId);
     }
   }
 

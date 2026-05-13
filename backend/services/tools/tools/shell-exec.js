@@ -1,6 +1,21 @@
 /**
- * Tool: shell_exec — Execute a shell command via SSH
- * Risk: MODERATE (subject to CommandGuard)
+ * Tool: shell_exec — Execute a raw shell command via SSH
+ * Risk: CRITICAL (requires human approval — use specific tools instead!)
+ * 
+ * IMPORTANT: This tool is a LAST RESORT. Always prefer specific tools:
+ * - docker_ps, docker_logs, docker_container_manage, docker_compose for Docker
+ * - service_status, systemctl, service_manage for services
+ * - nginx_config_read, nginx_config_write, nginx_reload, nginx_test for Nginx
+ * - pm2_list, pm2_restart, pm2_logs for PM2
+ * - file_read, file_write, file_manage for files
+ * - env_read, env_write for environment variables
+ * - disk_usage, memory_info, network_info, process_list for monitoring
+ * - firewall_status, firewall_manage, ssl_cert_check for security
+ * - cron_list, cron_manage for cron jobs
+ * - rag_query for infrastructure context
+ * 
+ * Using shell_exec requires human approval because raw commands
+ * bypass the structured safety checks of specific tools.
  */
 
 import { executeCommand } from '../../agent-executor.js';
@@ -8,7 +23,7 @@ import { validateCommand } from '../../command-guard.js';
 
 export default {
   name: 'shell_exec',
-  description: 'Execute a shell command on the remote server. Subject to command security validation. Use specific tools (docker_ps, service_status, etc.) when available for better safety and structured output.',
+  description: 'LAST RESORT: Execute a raw shell command on the remote server. REQUIRES HUMAN APPROVAL. Always prefer specific tools (docker_ps, service_status, nginx_config_write, etc.) over this tool. This tool bypasses structured safety checks and should only be used when no specific tool covers the needed operation. Subject to CommandGuard validation.',
   parameters: {
     type: 'object',
     properties: {
@@ -29,8 +44,8 @@ export default {
     },
     required: ['command']
   },
-  risk_level: 'MODERATE',
-  needs_approval: false,
+  risk_level: 'CRITICAL',
+  needs_approval: true,
   category: 'system',
 
   async implementation(serverConfig, args, context) {

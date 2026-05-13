@@ -69,6 +69,22 @@ import backupCreate from './tools/backup-create.js';
 // Import all tool definitions — File tools
 import fileManage from './tools/file-manage.js';
 
+// Import all tool definitions — Docker advanced tools
+import dockerImageManage from './tools/docker-image-manage.js';
+import dockerNetworkManage from './tools/docker-network-manage.js';
+import dockerVolumeManage from './tools/docker-volume-manage.js';
+
+// Import all tool definitions — Security advanced tools
+import certbotManage from './tools/certbot-manage.js';
+
+// Import all tool definitions — System advanced tools
+import swapManage from './tools/swap-manage.js';
+import npmManage from './tools/npm-manage.js';
+
+// Import all tool definitions — Monitoring advanced tools
+import dnsCheck from './tools/dns-check.js';
+import kernelInfo from './tools/kernel-info.js';
+
 // Register all tools
 const toolDefinitions = [
   // Original tools
@@ -125,7 +141,23 @@ const toolDefinitions = [
   backupCreate,
 
   // File tools
-  fileManage
+  fileManage,
+
+  // Docker advanced tools
+  dockerImageManage,
+  dockerNetworkManage,
+  dockerVolumeManage,
+
+  // Security advanced tools
+  certbotManage,
+
+  // System advanced tools
+  swapManage,
+  npmManage,
+
+  // Monitoring advanced tools
+  dnsCheck,
+  kernelInfo
 ];
 
 // Auto-register on import
