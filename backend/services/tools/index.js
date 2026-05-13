@@ -85,6 +85,34 @@ import npmManage from './tools/npm-manage.js';
 import dnsCheck from './tools/dns-check.js';
 import kernelInfo from './tools/kernel-info.js';
 
+// Import all tool definitions — Process extended tools
+import pm2Start from './tools/pm2-start.js';
+import pm2Stop from './tools/pm2-stop.js';
+import pm2Delete from './tools/pm2-delete.js';
+import pm2Describe from './tools/pm2-describe.js';
+import pm2Save from './tools/pm2-save.js';
+
+// Import all tool definitions — Docker extended tools
+import dockerBuild from './tools/docker-build.js';
+import dockerExec from './tools/docker-exec.js';
+import dockerLogsTail from './tools/docker-logs-tail.js';
+import composeValidate from './tools/compose-validate.js';
+import dockerPrune from './tools/docker-prune.js';
+
+// Import all tool definitions — Nginx extended tools
+import nginxSitesList from './tools/nginx-sites-list.js';
+
+// Import all tool definitions — System extended tools
+import systemUpdate from './tools/system-update.js';
+import systemInfo from './tools/system-info.js';
+import uptimeCheck from './tools/uptime-check.js';
+import portCheck from './tools/port-check.js';
+import curlCheck from './tools/curl-check.js';
+import pipManage from './tools/pip-manage.js';
+
+// Import all tool definitions — File extended tools
+import fileSearch from './tools/file-search.js';
+
 // Register all tools
 const toolDefinitions = [
   // Original tools
@@ -157,7 +185,35 @@ const toolDefinitions = [
 
   // Monitoring advanced tools
   dnsCheck,
-  kernelInfo
+  kernelInfo,
+
+  // Process extended tools
+  pm2Start,
+  pm2Stop,
+  pm2Delete,
+  pm2Describe,
+  pm2Save,
+
+  // Docker extended tools
+  dockerBuild,
+  dockerExec,
+  dockerLogsTail,
+  composeValidate,
+  dockerPrune,
+
+  // Nginx extended tools
+  nginxSitesList,
+
+  // System extended tools
+  systemUpdate,
+  systemInfo,
+  uptimeCheck,
+  portCheck,
+  curlCheck,
+  pipManage,
+
+  // File extended tools
+  fileSearch
 ];
 
 // Auto-register on import

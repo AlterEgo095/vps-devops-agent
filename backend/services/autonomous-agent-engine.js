@@ -1,5 +1,17 @@
-import * as openAIProvider from './openai-provider.js';
-import SSHExecutor from './ssh-executor.js';
+/**
+ * ============================================================
+ * Autonomous Agent Engine — V2 Tool-Based Execution
+ * ============================================================
+ *
+ * Routes ALL requests through the ReAct orchestrator + tool system.
+ * No raw bash generation — AI uses only predefined secure tools.
+ *
+ * @module AutonomousAgentEngine
+ * @version 2.0.0
+ */
+
+import logger from '../config/logger.js';
+import reactOrchestrator from './react/orchestrator.js';
 
 class AutonomousAgentEngine {
   constructor() {
@@ -7,101 +19,112 @@ class AutonomousAgentEngine {
     this.context = {};
   }
 
-  async executeNaturalLanguageCommand(command, serverConfig) {
+  /**
+   * Execute a natural language command using the ReAct orchestrator
+   * @param {string} command - Natural language command
+   * @param {Object} serverConfig - SSH connection config
+   * @param {Object} context - Additional context (userId, serverId, etc.)
+   * @returns {Promise<Object>} Execution result
+   */
+  async executeNaturalLanguageCommand(command, serverConfig, context = {}) {
     try {
-      const messages = [
-        {
-          role: 'system',
-          content: 'Tu es un agent DevOps autonome. Convertis les commandes en langage naturel en commandes système.'
-        },
-        {
-          role: 'user',
-          content: command
-        }
-      ];
-
-      const response = await openAIProvider.chat(messages, {
-        temperature: 0.2,
-        max_tokens: 500
+      logger.info('[AutonomousEngine] Executing via ReAct:', {
+        command: command.substring(0, 200),
+        serverHost: serverConfig?.host
       });
 
-      const aiResponse = response.choices[0].message.content;
-      
+      const result = await reactOrchestrator.execute(command, serverConfig, {
+        userId: context.userId || 'autonomous',
+        serverId: context.serverId || null,
+        conversationId: context.conversationId || null,
+        maxIterations: context.maxIterations || 10
+      });
+
+      // Store in conversation history
       this.conversationHistory.push({
         role: 'user',
-        content: command
+        content: command,
+        timestamp: new Date().toISOString()
       });
+
       this.conversationHistory.push({
         role: 'assistant',
-        content: aiResponse
+        content: result.finalAnswer || result.message || 'Task completed',
+        timestamp: new Date().toISOString(),
+        executionId: result.executionId,
+        iterations: result.iterations
       });
 
-      // Extraire les commandes (simplifié)
-      const commandMatch = aiResponse.match(/```(?:bash)?\n([\s\S]+?)\n```/);
-      const extractedCommand = commandMatch ? commandMatch[1].trim() : aiResponse;
-
-      // Exécuter si un serveur est configuré
-      if (serverConfig && serverConfig.host) {
-        const result = await this.executeCommands([extractedCommand], serverConfig);
-        return {
-          success: true,
-          aiResponse,
-          command: extractedCommand,
-          execution: result
-        };
-      }
-
       return {
-        success: true,
-        aiResponse,
-        command: extractedCommand,
-        execution: null
+        success: result.success,
+        aiResponse: result.finalAnswer || result.message || 'Task completed',
+        executionId: result.executionId,
+        iterations: result.iterations,
+        status: result.status || (result.success ? 'completed' : 'failed'),
+        approvalNeeded: result.status === 'awaiting_approval',
+        approvalId: result.approvalId || null
       };
     } catch (error) {
-      console.error('❌ Agent error:', error);
+      logger.error('[AutonomousEngine] Execution error:', { error: error.message });
       throw error;
     }
   }
 
-  async executeCommands(commands, serverConfig) {
-    const sshExecutor = new SSHExecutor(serverConfig);
-    
+  /**
+   * Resume execution after human approval
+   * @param {string} approvalId - The approval ID
+   * @param {Object} serverConfig - SSH connection config
+   * @param {Object} context - Additional context
+   * @returns {Promise<Object>} Resumed execution result
+   */
+  async resumeAfterApproval(approvalId, serverConfig, context = {}) {
     try {
-      await sshExecutor.connect();
-      
-      const results = [];
-      for (const command of commands) {
-        const result = await sshExecutor.executeCommand(command);
-        results.push(result);
-      }
-      
-      sshExecutor.disconnect();
-      
+      logger.info('[AutonomousEngine] Resuming after approval:', { approvalId });
+
+      const result = await reactOrchestrator.resumeAfterApproval(
+        approvalId,
+        serverConfig,
+        {
+          userId: context.userId || 'autonomous',
+          serverId: context.serverId || null
+        }
+      );
+
       return {
-        success: true,
-        results
+        success: result.success,
+        aiResponse: result.finalAnswer || result.message || 'Task resumed and completed',
+        executionId: result.executionId,
+        iterations: result.iterations,
+        status: result.status || (result.success ? 'completed' : 'failed')
       };
     } catch (error) {
-      sshExecutor.disconnect();
+      logger.error('[AutonomousEngine] Resume error:', { error: error.message });
       throw error;
     }
   }
 
+  /**
+   * Reset conversation history
+   */
   resetConversation() {
     this.conversationHistory = [];
     this.context = {};
-    console.log('✅ Conversation réinitialisée');
+    logger.info('[AutonomousEngine] Conversation reset');
     return {
       success: true,
-      message: 'Conversation réinitialisée'
+      message: 'Conversation reset'
     };
   }
 
+  /**
+   * Get conversation history
+   * @param {number} limit - Maximum number of entries
+   * @returns {Array}
+   */
   getConversationHistory(limit = 50) {
     return this.conversationHistory.slice(-limit);
   }
 }
 
 const agentEngine = new AutonomousAgentEngine();
-
 export default agentEngine;
