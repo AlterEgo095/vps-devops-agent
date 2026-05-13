@@ -89,6 +89,7 @@ import toolsRouter from './routes/tools.js';
 import checkpointsRouter from './routes/checkpoints.js';
 import approvalsRouter from './routes/approvals.js';
 import reactRouter from './routes/react.js';
+import ragRouter from './routes/rag.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -208,6 +209,7 @@ app.use('/api/tools', toolsRouter); // 🔧 Function Calling Tools API
 app.use('/api/checkpoints', checkpointsRouter); // 📸 Git Checkpoints API
 app.use('/api/approvals', approvalsRouter); // ✋ Approval Workflow API
 app.use('/api/ai/agent/react', reactRouter); // 🧠 ReAct Loop API
+app.use('/api/rag', ragRouter); // 🔍 RAG Knowledge Base API
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -230,7 +232,8 @@ app.get('/api/health', (req, res) => {
       functionCalling: true,
       gitCheckpoints: true,
       approvalWorkflow: true,
-      reactLoop: true
+      reactLoop: true,
+      ragKnowledgeBase: true
     }
   });
 });
@@ -259,7 +262,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server with WebSocket support
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', async () => {
   logger.info('🚀 VPS DevOps Agent started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
@@ -275,7 +278,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🐳 Docker API: http://localhost:${PORT}/api/docker`);
   console.log(`📊 Monitoring API: http://localhost:${PORT}/api/monitoring`);
   console.log(`\n✨ Ready to receive commands!\n`);
-  console.log(`🔧 V2 Features: Function Calling | Git Checkpoints | Approval Workflow | ReAct Loop`);
+  console.log(`🔧 V2 Features: Function Calling | Git Checkpoints | Approval Workflow | ReAct Loop | RAG Knowledge Base`);
   
   // Initialiser WebSocket après le démarrage du serveur
   initializeWebSocket(server);
@@ -350,6 +353,65 @@ server.listen(PORT, '0.0.0.0', () => {
       systemMonitor.cleanOldMetrics(30); // Garder 30 jours
     }
   });
+  
+  // ============================================================
+  // RAG Auto-Collection Cron Jobs
+  // ============================================================
+  // Collect system metrics (services, docker, system, processes) every 5 minutes
+  // Collect configs and security data every 60 minutes
+  try {
+    const { db: ragDb } = await import('./services/database-sqlite.js');
+    const { collectServerData } = await import('./services/rag/data-collector.js');
+    const { decryptPassword } = await import('./services/crypto-manager.js');
+
+    /**
+     * Run RAG collection for all servers with specific collection types
+     */
+    async function runRAGCollection(types) {
+      try {
+        const servers = ragDb.prepare('SELECT * FROM servers').all();
+        if (!servers || servers.length === 0) return;
+
+        for (const server of servers) {
+          try {
+            if (!server.encrypted_credentials) continue;
+
+            const serverConfig = {
+              host: server.host,
+              port: server.port || 22,
+              username: server.username,
+              password: decryptPassword(server.encrypted_credentials)
+            };
+
+            await collectServerData(server.id, serverConfig, { types, incremental: true });
+            logger.info(`[RAG Cron] Collection completed for server ${server.id}`, { types: types.join(',') });
+          } catch (error) {
+            logger.warn(`[RAG Cron] Collection failed for server ${server.id}`, { error: error.message });
+          }
+        }
+      } catch (error) {
+        logger.error('[RAG Cron] Collection error:', { error: error.message });
+      }
+    }
+
+    // Metrics collections: every 5 minutes
+    cron.schedule('*/5 * * * *', () => {
+      logger.info('[RAG Cron] Starting metrics collection (5-min cycle)');
+      runRAGCollection(['services', 'docker', 'system', 'processes']);
+    });
+
+    // Config/security collections: every 60 minutes
+    cron.schedule('0 * * * *', () => {
+      logger.info('[RAG Cron] Starting config/security collection (60-min cycle)');
+      runRAGCollection(['configs', 'security', 'nginx']);
+    });
+
+    logger.info('📚 RAG auto-collection crons initialized (5-min metrics, 60-min configs)');
+    console.log('📚 RAG auto-collection crons initialized (5-min metrics, 60-min configs)');
+  } catch (error) {
+    logger.warn('[RAG Cron] Failed to initialize RAG auto-collection:', { error: error.message });
+    console.log('⚠️ RAG auto-collection crons not available:', error.message);
+  }
   
   logger.info('✅ Monitoring system initialized');
   console.log('✅ Monitoring system initialized');

@@ -5,6 +5,7 @@
 
 import axios from 'axios';
 import logger from '../../../config/logger.js';
+import { db } from '../../database-sqlite.js';
 
 class TelegramNotifier {
   constructor() {
@@ -69,12 +70,16 @@ class TelegramNotifier {
 
       // Store telegram message ID for updates
       const messageId = response.data?.result?.message_id;
-      if (messageId && db) {
-        db.prepare(`
-          UPDATE approval_requests
-          SET telegram_message_id = ?, telegram_chat_id = ?
-          WHERE id = ?
-        `).run(String(messageId), this.chatId, approvalId);
+      if (messageId) {
+        try {
+          db.prepare(`
+            UPDATE approval_requests
+            SET telegram_message_id = ?, telegram_chat_id = ?
+            WHERE id = ?
+          `).run(String(messageId), this.chatId, approvalId);
+        } catch (dbError) {
+          logger.error('[Telegram] Failed to store message ID:', { error: dbError.message });
+        }
       }
 
       logger.info(`[Telegram] Approval request sent: ${approvalId}`);

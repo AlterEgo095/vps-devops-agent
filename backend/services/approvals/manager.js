@@ -18,6 +18,7 @@ import { getNotifier } from './notifiers/index.js';
 class ApprovalManager {
   constructor() {
     this.pendingApprovals = new Map(); // approvalId -> { resolve, reject, timeout }
+    this.resumeSignals = new Map();    // executionId -> { approvalId, approvedBy, timestamp }
     this.defaultTimeoutMinutes = 30;
   }
 
@@ -165,6 +166,11 @@ class ApprovalManager {
 
       logger.info(`[Approvals] Approved: ${approvalId} by ${decidedBy}`);
 
+      // Emit resume signal for the ReAct orchestrator if there's a linked execution
+      if (approval.execution_id) {
+        this._emitResumeSignal(approvalId, approval.execution_id, decidedBy);
+      }
+
       return {
         success: true,
         approvalId,
@@ -307,6 +313,44 @@ class ApprovalManager {
       logger.error('[Approvals] Cleanup failed:', { error: error.message });
       return 0;
     }
+  }
+
+  /**
+   * Emit a resume signal so the ReAct orchestrator can pick it up
+   * @param {string} approvalId
+   * @param {number} executionId
+   * @param {string} approvedBy
+   */
+  _emitResumeSignal(approvalId, executionId, approvedBy) {
+    this.resumeSignals.set(executionId, {
+      approvalId,
+      approvedBy,
+      timestamp: Date.now()
+    });
+    logger.info(`[Approvals] Resume signal emitted for execution ${executionId}, approval ${approvalId}`);
+  }
+
+  /**
+   * Check if there's a resume signal for an execution
+   * @param {number} executionId
+   * @returns {boolean}
+   */
+  hasResumeSignal(executionId) {
+    return this.resumeSignals?.has(executionId) || false;
+  }
+
+  /**
+   * Consume (get + delete) a resume signal for an execution
+   * @param {number} executionId
+   * @returns {Object|null} The resume signal data
+   */
+  consumeResumeSignal(executionId) {
+    const signal = this.resumeSignals?.get(executionId);
+    if (signal) {
+      this.resumeSignals.delete(executionId);
+      logger.info(`[Approvals] Resume signal consumed for execution ${executionId}`);
+    }
+    return signal || null;
   }
 
   /**
