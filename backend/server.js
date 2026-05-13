@@ -84,6 +84,12 @@ import enhancementsRouter from './routes/enhancements.js';
 import securityRouter from './routes/security.js';
 import capabilitiesRouter from './routes/capabilities.js';
 
+// V2 Routes — Function Calling, Git Checkpoints, Approval Workflow, ReAct
+import toolsRouter from './routes/tools.js';
+import checkpointsRouter from './routes/checkpoints.js';
+import approvalsRouter from './routes/approvals.js';
+import reactRouter from './routes/react.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -197,12 +203,18 @@ app.use('/api/enhancements', enhancementsRouter); // ✨ Enhancements API routes
 app.use('/api/security', securityRouter); // 🔒 Security Monitoring routes
 app.use('/api/capabilities', capabilitiesRouter); // 🚀 Code Analyzer routes
 
+// V2 Routes — AI Agent Evolution
+app.use('/api/tools', toolsRouter); // 🔧 Function Calling Tools API
+app.use('/api/checkpoints', checkpointsRouter); // 📸 Git Checkpoints API
+app.use('/api/approvals', approvalsRouter); // ✋ Approval Workflow API
+app.use('/api/ai/agent/react', reactRouter); // 🧠 ReAct Loop API
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    version: '2.0.0',
     workspace: process.env.AGENT_WORKSPACE || '/opt/agent-projects',
     auth: {
       configured: !!process.env.ADMIN_USERNAME && !!process.env.ADMIN_PASSWORD,
@@ -212,8 +224,13 @@ app.get('/api/health', (req, res) => {
       aiAgent: true,
       sshTerminal: true,
       websocket: true,
-      dockerManager: true, // ✨ NOUVEAU
-      monitoring: true // ✨ NOUVEAU
+      dockerManager: true,
+      monitoring: true,
+      // V2 Features
+      functionCalling: true,
+      gitCheckpoints: true,
+      approvalWorkflow: true,
+      reactLoop: true
     }
   });
 });
@@ -258,6 +275,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🐳 Docker API: http://localhost:${PORT}/api/docker`);
   console.log(`📊 Monitoring API: http://localhost:${PORT}/api/monitoring`);
   console.log(`\n✨ Ready to receive commands!\n`);
+  console.log(`🔧 V2 Features: Function Calling | Git Checkpoints | Approval Workflow | ReAct Loop`);
   
   // Initialiser WebSocket après le démarrage du serveur
   initializeWebSocket(server);
@@ -297,6 +315,32 @@ server.listen(PORT, '0.0.0.0', () => {
       });
     }
   });
+  
+  // V2: Clean up expired approvals every minute
+  const approvalManager = (await import('./services/approvals/manager.js')).default;
+  cron.schedule('* * * * *', () => {
+    try {
+      approvalManager.cleanupExpired();
+    } catch (error) {
+      // Silently fail
+    }
+  });
+  
+  // Run V2 database migration
+  try {
+    const fs = await import('fs');
+    const migrationPath = join(__dirname, 'migrations/007_v2_schema.sql');
+    if (fs.existsSync(migrationPath)) {
+      const { db } = await import('./services/database-sqlite.js');
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      db.exec(migrationSQL);
+      console.log('✅ V2 schema migration applied');
+    }
+  } catch (error) {
+    if (!error.message.includes('already exists')) {
+      console.error('⚠️ V2 migration warning:', error.message);
+    }
+  }
   
   // Nettoyer les anciennes métriques tous les jours à minuit
   cron.schedule('0 0 * * *', () => {
