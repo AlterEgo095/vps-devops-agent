@@ -98,7 +98,7 @@ const __dirname = dirname(__filename);
 const app = express();
 app.set("trust proxy", true); // ✅ Faire confiance au proxy nginx pour obtenir la vraie IP
 // 🛡️ Rate limiting global pour toutes les routes API
-app.use('/api/', apiLimiter);
+app.use('/api/', (req, res, next) => { apiLimiter(req, res, next).catch(next); });
 const PORT = process.env.PORT || 4000;
 
 // Créer un serveur HTTP pour supporter WebSocket

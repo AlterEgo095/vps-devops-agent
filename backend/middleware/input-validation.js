@@ -39,7 +39,7 @@ export const validators = {
   username: body('username')
     .trim()
     .isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters')
-    .isAlphanumeric().withMessage('Username must be alphanumeric'),
+    .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username must be alphanumeric, dashes and underscores allowed'),
   
   password: body('password')
     .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')

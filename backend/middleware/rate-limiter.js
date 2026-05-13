@@ -10,6 +10,8 @@ import rateLimit from 'express-rate-limit';
  * Limite stricte pour éviter les attaques brute-force
  */
 export const loginLimiter = rateLimit({
+  validate: { trustProxy: false },
+  skipFailedRequests: true,
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Maximum 10 tentatives par fenêtre (augmenté pour test)
   standardHeaders: true,
@@ -31,6 +33,8 @@ export const loginLimiter = rateLimit({
  * Rate limiter général pour toutes les routes API
  */
 export const apiLimiter = rateLimit({
+  validate: { trustProxy: false },
+  skipFailedRequests: true,
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 100, // Maximum 100 requêtes par minute
   standardHeaders: true,
@@ -45,6 +49,8 @@ export const apiLimiter = rateLimit({
  * Rate limiter strict pour actions sensibles
  */
 export const sensitiveActionLimiter = rateLimit({
+  validate: { trustProxy: false },
+  skipFailedRequests: true,
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 20, // Maximum 20 actions sensibles par heure
   standardHeaders: true,
@@ -59,6 +65,8 @@ export const sensitiveActionLimiter = rateLimit({
  * Rate limiter pour création de comptes
  */
 export const registerLimiter = rateLimit({
+  validate: { trustProxy: false },
+  skipFailedRequests: true,
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 5, // Maximum 5 inscriptions par heure par IP
   standardHeaders: true,

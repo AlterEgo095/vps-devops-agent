@@ -10,12 +10,12 @@ import Joi from 'joi';
 
 export const loginSchema = Joi.object({
   username: Joi.string()
-    .alphanum()
+    .pattern(/^[a-zA-Z0-9_-]+$/)
     .min(3)
     .max(30)
     .required()
     .messages({
-      'string.alphanum': 'Le nom d\'utilisateur ne doit contenir que des caractères alphanumériques',
+      'string.pattern.base': 'Le nom d\'utilisateur ne doit contenir que des caractères alphanumériques',
       'string.min': 'Le nom d\'utilisateur doit contenir au moins 3 caractères',
       'string.max': 'Le nom d\'utilisateur ne peut pas dépasser 30 caractères',
       'any.required': 'Le nom d\'utilisateur est requis'
@@ -33,12 +33,12 @@ export const loginSchema = Joi.object({
 
 export const registerSchema = Joi.object({
   username: Joi.string()
-    .alphanum()
+    .pattern(/^[a-zA-Z0-9_-]+$/)
     .min(3)
     .max(30)
     .required()
     .messages({
-      'string.alphanum': 'Le nom d\'utilisateur ne doit contenir que des caractères alphanumériques',
+      'string.pattern.base': 'Le nom d\'utilisateur ne doit contenir que des caractères alphanumériques',
       'string.min': 'Le nom d\'utilisateur doit contenir au moins 3 caractères',
       'string.max': 'Le nom d\'utilisateur ne peut pas dépasser 30 caractères',
       'any.required': 'Le nom d\'utilisateur est requis'
@@ -470,7 +470,7 @@ export const projectNameParamSchema = Joi.object({
  * Mise à jour des informations utilisateur
  */
 export const updateUserSchema = Joi.object({
-  username: Joi.string().alphanum().min(3).max(30).optional(),
+  username: Joi.string().pattern(/^[a-zA-Z0-9_-]+$/).min(3).max(30).optional(),
   email: Joi.string().email().optional(),
   role: Joi.string().valid('user', 'admin', 'moderator').optional(),
   subscription_plan: Joi.string().max(50).optional(),

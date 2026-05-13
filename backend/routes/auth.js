@@ -11,6 +11,7 @@ import logger from '../config/logger.js';
 
 const router = express.Router();
 
+
 // Login
 router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) => {
   try {
@@ -82,6 +83,7 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res) 
   } catch (error) {
     // [SECURITY] P1.1 — En production, pas de stack trace exposée dans la réponse HTTP
     logger.error('Login error', { error: error.message, stack: error.stack });
+    console.error('[LOGIN DEBUG]', error.message, error.stack);
     res.status(500).json({ error: 'Login failed' });
   }
 });

@@ -171,7 +171,7 @@ class ToolRegistry {
         CRITICAL: tools.filter(t => t.risk_level === 'CRITICAL').length
       },
       byCategory: Object.fromEntries(
-        this.categories.map(cat => [cat, this.getByCategory(cat).length])
+        Array.from(this.categories).map(cat => [cat, this.getByCategory(cat).length])
       ),
       needingApproval: this.getToolsNeedingApproval().length
     };
