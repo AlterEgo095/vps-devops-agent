@@ -56,6 +56,8 @@ import { dirname, join } from 'path';
 import http from 'http';
 import os from 'os';
 import logger from './config/logger.js';
+import crypto from 'crypto';
+import fs from 'fs';
 import { db } from './services/database-sqlite.js';
 import { httpLogger, requestLogger } from './middleware/http-logger.js';
 
@@ -121,11 +123,22 @@ const server = http.createServer(app);
 // are managed by Nginx (single source of truth) to avoid
 // duplicate/conflicting headers that break securityheaders.com A+.
 // ============================================================
+// ============================================================
+// [SECURITY] Nonce-based CSP — A+ securityheaders.com
+// Each request gets a unique cryptographic nonce.
+// HTML files are served through route handlers that inject
+// nonces into <script> tags, eliminating unsafe-inline/eval.
+// ============================================================
+app.use((req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "'unsafe-hashes'", "cdn.jsdelivr.net", "cdn.tailwindcss.com", "cdnjs.cloudflare.com"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.cspNonce}'`, "cdn.jsdelivr.net", "cdn.tailwindcss.com", "cdnjs.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "cdn.tailwindcss.com", "cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "ws:", "wss:"],
@@ -133,8 +146,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'self'"],
-      scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"],
-      // Additional CSP directives for A+ compliance
+      scriptSrcAttr: [(req, res) => `'nonce-${res.locals.cspNonce}'`],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
@@ -143,17 +155,17 @@ app.use(helmet({
   },
   // Disable all headers that Nginx handles to avoid duplicates
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: false,     // Nginx handles COOP
-  crossOriginResourcePolicy: false,   // Nginx handles CORP
-  dnsPrefetchControl: false,          // Nginx handles
-  frameguard: false,                  // Nginx handles X-Frame-Options
-  hsts: false,                        // Nginx handles HSTS
-  ieNoOpen: false,                    // Nginx handles X-Download-Options
-  noSniff: false,                     // Nginx handles X-Content-Type-Options
-  permittedCrossDomainPolicies: false, // Nginx handles
-  referrerPolicy: false,              // Nginx handles Referrer-Policy
-  xssFilter: false,                   // Nginx handles X-XSS-Protection
-  originAgentCluster: false            // Nginx handles Origin-Agent-Cluster
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
+  dnsPrefetchControl: false,
+  frameguard: false,
+  hsts: false,
+  ieNoOpen: false,
+  noSniff: false,
+  permittedCrossDomainPolicies: false,
+  referrerPolicy: false,
+  xssFilter: false,
+  originAgentCluster: false
 }));
 
 // 🚀 Compression des réponses HTTP (Amélioration Performance)
@@ -215,8 +227,48 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static files (frontend)
-app.use(express.static(join(__dirname, '../frontend')));
+// ============================================================
+// [SECURITY] HTML Nonce Injection — Serve HTML files with CSP nonces
+// These route handlers run BEFORE express.static so that HTML files
+// get nonces injected into <script> tags for nonce-based CSP.
+
+const HTML_FILES = [
+  'dashboard.html', 'admin-panel.html', 'agent-devops.html',
+  'ai-agent-chat.html', 'autonomous-agent.html', 'autonomous-chat.html',
+  'cicd.html', 'code-analyzer.html', 'docker-manager.html', 'enhancements.html',
+  'monitoring.html', 'monitoring-advanced.html', 'projects-manager.html',
+  'sandbox-playground.html', 'subscription-manager.html', 'terminal-ssh.html',
+  'offline.html'
+];
+
+HTML_FILES.forEach(file => {
+  app.get('/' + file, (req, res) => {
+    const filePath = join(__dirname, '../frontend', file);
+    const nonce = res.locals.cspNonce;
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) return res.status(404).send('Not found');
+      const modified = data.replace(/<script(?![^>]*nonce=)/g, '<script nonce="' + nonce + '"');
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+      res.send(modified);
+    });
+  });
+});
+
+// Root path → index.html with nonce injection
+app.get('/', (req, res) => {
+  const filePath = join(__dirname, '../frontend/index.html');
+  const nonce = res.locals.cspNonce;
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) return res.status(404).send('Not found');
+    const modified = data.replace(/<script(?![^>]*nonce=)/g, '<script nonce="' + nonce + '"');
+    res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+    res.send(modified);
+  });
+});
+
+// Static files (non-HTML assets only — JS, CSS, images, fonts, etc.)
+// HTML files are handled by the nonce injection route handlers above.
+app.use(express.static(join(__dirname, '../frontend'), { extensions: false }));
 
 // API Routes
 app.use('/api/auth', authRouter);
@@ -288,7 +340,15 @@ app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     res.status(404).json({ error: 'Endpoint not found' });
   } else {
-    res.sendFile(join(__dirname, '../frontend/index.html'));
+    // For non-API 404s, try to serve the HTML file with nonce
+    const nonce = res.locals.cspNonce;
+    const filePath = join(__dirname, '../frontend', 'index.html');
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) return res.status(404).send('Not found');
+      const modified = data.replace(/<script(?![^>]*nonce=)/g, '<script nonce="' + nonce + '"');
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+      res.send(modified);
+    });
   }
 });
 
