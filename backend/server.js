@@ -116,6 +116,11 @@ const server = http.createServer(app);
 
 // Middleware
 // 🔒 Configuration Helmet pour headers de sécurité
+// ============================================================
+// [SECURITY] Helmet — CSP only. All other security headers
+// are managed by Nginx (single source of truth) to avoid
+// duplicate/conflicting headers that break securityheaders.com A+.
+// ============================================================
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -128,15 +133,27 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'self'"],
-      scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"]
+      scriptSrcAttr: ["'unsafe-inline'", "'unsafe-hashes'"],
+      // Additional CSP directives for A+ compliance
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'self'"],
+      upgradeInsecureRequests: []
     }
   },
+  // Disable all headers that Nginx handles to avoid duplicates
   crossOriginEmbedderPolicy: false,
-  hsts: {
-    maxAge: 31536000, // 1 an
-    includeSubDomains: true,
-    preload: true
-  }
+  crossOriginOpenerPolicy: false,     // Nginx handles COOP
+  crossOriginResourcePolicy: false,   // Nginx handles CORP
+  dnsPrefetchControl: false,          // Nginx handles
+  frameguard: false,                  // Nginx handles X-Frame-Options
+  hsts: false,                        // Nginx handles HSTS
+  ieNoOpen: false,                    // Nginx handles X-Download-Options
+  noSniff: false,                     // Nginx handles X-Content-Type-Options
+  permittedCrossDomainPolicies: false, // Nginx handles
+  referrerPolicy: false,              // Nginx handles Referrer-Policy
+  xssFilter: false,                   // Nginx handles X-XSS-Protection
+  originAgentCluster: false            // Nginx handles Origin-Agent-Cluster
 }));
 
 // 🚀 Compression des réponses HTTP (Amélioration Performance)
