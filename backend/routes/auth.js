@@ -133,7 +133,7 @@ router.post('/refresh', (req, res) => {
     
     try {
         // Verify the existing token (even if expired, within grace period)
-        const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
         
         // Check if token is within refresh grace period (7 days after expiry)
         const tokenAge = Date.now() / 1000 - decoded.iat;
