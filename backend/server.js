@@ -146,7 +146,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'self'"],
-      scriptSrcAttr: [(req, res) => `'nonce-${res.locals.cspNonce}'`],
+      // scriptSrcAttr removed — all inline event handlers replaced with addEventListener event delegation (CSP compliant)
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],

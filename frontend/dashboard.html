@@ -2280,15 +2280,6 @@ body.dark-mode .header {
 <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.0/dist/gridstack-all.js"></script>
 
 <!-- Initialize global functions BEFORE body to prevent ReferenceError -->
-<script>
-// Create stub functions that will be replaced when DOMContentLoaded fires
-window.switchPage = window.switchPage || function(page) { console.log('switchPage stub called for:', page); };
-window.toggleSidebar = window.toggleSidebar || function() { console.log('toggleSidebar stub called'); };
-window.toggleMobileSidebar = window.toggleMobileSidebar || function() { console.log('toggleMobileSidebar stub called'); };
-window.toggleDarkMode = window.toggleDarkMode || function() { console.log("toggleDarkMode stub called"); };
-window.handleLogout = window.handleLogout || function() { console.log('handleLogout stub called'); };
-window.hideKeyboardShortcuts = window.hideKeyboardShortcuts || function() { console.log('hideKeyboardShortcuts stub called'); };
-</script>
 
 <!-- REAL FUNCTIONS DEFINED IMMEDIATELY IN HEAD -->
 <script>
@@ -2397,7 +2388,7 @@ console.log('✅ All REAL functions defined in HEAD!');
     </div>
 
     <!-- Mobile Overlay -->
-    <div id="mobile-overlay" class="mobile-overlay" onclick="toggleMobileSidebar()"></div>
+    <div id="mobile-overlay" class="mobile-overlay"></div>
 
     <!-- Dashboard Layout -->
     <div class="dashboard-layout">
@@ -2416,19 +2407,19 @@ console.log('✅ All REAL functions defined in HEAD!');
                 <!-- Main Section -->
                 <div class="nav-section">
                     <div class="nav-section-title">Principal</div>
-                    <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+                    <div class="nav-item active" data-page="dashboard">
                         <i class="nav-item-icon fas fa-tachometer-alt"></i>
                         <span class="nav-item-text">Dashboard</span>
                     </div>
-                    <div class="nav-item" data-page="chat" onclick="switchPage('chat')">
+                    <div class="nav-item" data-page="chat">
                         <i class="nav-item-icon fas fa-comments"></i>
                         <span class="nav-item-text">Chat AI</span>
                     </div>
-                    <div class="nav-item" data-page="terminal" onclick="switchPage('terminal')">
+                    <div class="nav-item" data-page="terminal">
                         <i class="nav-item-icon fas fa-terminal"></i>
                         <span class="nav-item-text">Terminal SSH</span>
                     </div>
-                    <div class="nav-item" data-page="agent" onclick="switchPage('agent')">
+                    <div class="nav-item" data-page="agent">
                         <i class="nav-item-icon fas fa-robot"></i>
                         <span class="nav-item-text">Agent DevOps</span>
                     </div>
@@ -2437,15 +2428,15 @@ console.log('✅ All REAL functions defined in HEAD!');
                 <!-- Development Section -->
                 <div class="nav-section">
                     <div class="nav-section-title">Développement</div>
-                    <div class="nav-item" data-page="code-analyzer" onclick="switchPage('code-analyzer')">
+                    <div class="nav-item" data-page="code-analyzer">
                         <i class="nav-item-icon fas fa-code"></i>
                         <span class="nav-item-text">Code Analyzer</span>
                     </div>
-                    <div class="nav-item" data-page="sandbox" onclick="switchPage('sandbox')">
+                    <div class="nav-item" data-page="sandbox">
                         <i class="nav-item-icon fas fa-play"></i>
                         <span class="nav-item-text">Sandbox Playground</span>
                     </div>
-                    <div class="nav-item" data-page="monitoring-advanced" onclick="switchPage('monitoring-advanced')">
+                    <div class="nav-item" data-page="monitoring-advanced">
                         <i class="nav-item-icon fas fa-chart-line"></i>
                         <span class="nav-item-text">Live Monitoring Pro</span>
                         <span class="nav-badge">New</span>
@@ -2455,15 +2446,15 @@ console.log('✅ All REAL functions defined in HEAD!');
                 <!-- Management Section -->
                 <div class="nav-section">
                     <div class="nav-section-title">Gestion</div>
-                    <div class="nav-item" data-page="docker" onclick="switchPage('docker')">
+                    <div class="nav-item" data-page="docker">
                         <i class="nav-item-icon fab fa-docker"></i>
                         <span class="nav-item-text">Docker</span>
                     </div>
-                    <div class="nav-item" data-page="monitoring" onclick="switchPage('monitoring')">
+                    <div class="nav-item" data-page="monitoring">
                         <i class="nav-item-icon fas fa-chart-line"></i>
                         <span class="nav-item-text">Monitoring</span>
                     </div>
-                    <div class="nav-item" data-page="cicd" onclick="switchPage('cicd')">
+                    <div class="nav-item" data-page="cicd">
                         <i class="nav-item-icon fas fa-rocket"></i>
                         <span class="nav-item-text">CI/CD</span>
                     </div>
@@ -2472,28 +2463,28 @@ console.log('✅ All REAL functions defined in HEAD!');
                 <!-- System Section -->
                 <div class="nav-section">
                     <div class="nav-section-title">Système</div>
-                    <div class="nav-item" data-page="admin-panel" onclick="switchPage('admin-panel')">
+                    <div class="nav-item" data-page="admin-panel">
                         <i class="nav-item-icon fas fa-user-shield"></i>
                         <span class="nav-item-text">Administration</span>
                         <span class="nav-badge" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">Admin</span>
                     </div>
-                    <div class="nav-item" data-page="subscription-manager" onclick="switchPage('subscription-manager')">
+                    <div class="nav-item" data-page="subscription-manager">
                         <i class="nav-item-icon fas fa-credit-card"></i>
                         <span class="nav-item-text">Abonnements</span>
                     </div>
-                    <div class="nav-item" data-page="autonomous-agent" onclick="switchPage('autonomous-agent')">
+                    <div class="nav-item" data-page="autonomous-agent">
                         <i class="nav-item-icon fas fa-robot"></i>
                         <span class="nav-item-text">Agent Autonome</span>
                     </div>
-                    <div class="nav-item" data-page="projects-manager" onclick="switchPage('projects-manager')">
+                    <div class="nav-item" data-page="projects-manager">
                         <i class="nav-item-icon fas fa-project-diagram"></i>
                         <span class="nav-item-text">Gestion Projets</span>
                     </div>
-                    <div class="nav-item" data-page="enhancements" onclick="switchPage('enhancements')">
+                    <div class="nav-item" data-page="enhancements">
                         <i class="nav-item-icon fas fa-rocket"></i>
                         <span class="nav-item-text">API Enhancements</span>
                     </div>
-                    <div class="nav-item" data-page="settings" onclick="switchPage('settings')">
+                    <div class="nav-item" data-page="settings">
                         <i class="nav-item-icon fas fa-cog"></i>
                         <span class="nav-item-text">Paramètres</span>
                     </div>
@@ -2515,7 +2506,7 @@ console.log('✅ All REAL functions defined in HEAD!');
             <!-- Header -->
             <header class="header animate-fade-in">
                 <div class="header-left">
-                    <button class="toggle-sidebar-btn" onclick="toggleSidebar()" aria-label="Toggle Sidebar">
+                    <button class="toggle-sidebar-btn" aria-label="Toggle Sidebar">
                         <i class="fas fa-bars"></i>
                     </button>
                     <div class="search-box">
@@ -2526,7 +2517,7 @@ console.log('✅ All REAL functions defined in HEAD!');
                             placeholder="Rechercher..." 
                             id="global-search"
                         />
-                        <button class="search-clear" onclick="document.getElementById('global-search').value=''; document.getElementById('global-search').focus();">
+                        <button class="search-clear" data-action="clear-search">
                             <i class="fas fa-times"></i>
                         </button>
                         <div class="search-keyboard-hint">
@@ -2539,7 +2530,7 @@ console.log('✅ All REAL functions defined in HEAD!');
                     <div class="header-actions">
                         <!-- Dark Mode Toggle -->
                         <label class="theme-switch" aria-label="Toggle Dark Mode">
-                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                            <input type="checkbox" id="dark-mode-toggle">
                             <span class="theme-slider">
                                 <i class="fas fa-sun theme-icon theme-icon-sun"></i>
                                 <i class="fas fa-moon theme-icon theme-icon-moon"></i>
@@ -2553,12 +2544,12 @@ console.log('✅ All REAL functions defined in HEAD!');
                         </button>
                         
                         <!-- Settings -->
-                        <button class="header-btn" onclick="switchPage('settings')" title="Paramètres" aria-label="Settings">
+                        <button class="header-btn" data-action="switch-page" data-page="settings" title="Paramètres" aria-label="Settings">
                             <i class="fas fa-cog"></i>
                         </button>
                         
                         <!-- Logout -->
-                        <button class="header-btn" onclick="handleLogout()" title="Déconnexion" aria-label="Logout">
+                        <button class="header-btn" data-action="logout" title="Déconnexion" aria-label="Logout">
                             <i class="fas fa-sign-out-alt"></i>
                         </button>
                     </div>
@@ -2668,7 +2659,7 @@ console.log('✅ All REAL functions defined in HEAD!');
                             <span id="metrics-refresh-indicator" style="display: none; color: #667eea; font-size: 13px;">
                                 <i class="fas fa-spinner fa-spin"></i> Rafraichissement...
                             </span>
-                            <button onclick="window.serverMetricsManager.refreshAllMetrics()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                            <button data-action="refresh-metrics" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 500;">
                                 <i class="fas fa-sync-alt"></i> Actualiser
                             </button>
                         </div>
@@ -2991,7 +2982,122 @@ console.log('✅ All REAL functions defined in HEAD!');
         </main>
     </div>
 
-    <script>
+    
+<script>
+// ============================================================
+// EVENT DELEGATION SYSTEM — CSP Nonce Compliant
+// All inline onclick/onchange handlers have been removed.
+// Click events are handled via delegation on document.
+// ============================================================
+document.addEventListener('click', function(e) {
+    // Let ContextMenuManager handle its own context-menu-item clicks
+    if (e.target.closest('.context-menu-item')) return;
+    const target = e.target.closest('[data-action], [data-page]');
+    if (!target) return;
+
+    const action = target.dataset.action;
+    const page = target.dataset.page;
+
+    // Navigation: sidebar items with data-page
+    if (target.classList.contains('nav-item') && page) {
+        e.preventDefault();
+        if (typeof window.switchPage === 'function') {
+            window.switchPage(page);
+        }
+        return;
+    }
+
+    // Action-based delegation
+    switch(action) {
+        case 'switch-page':
+            e.preventDefault();
+            if (page && typeof window.switchPage === 'function') {
+                window.switchPage(page);
+            }
+            break;
+        case 'clear-search':
+            e.preventDefault();
+            var si = document.getElementById('global-search');
+            if (si) { si.value = ''; si.focus(); }
+            break;
+        case 'logout':
+            e.preventDefault();
+            if (typeof window.handleLogout === 'function') window.handleLogout();
+            break;
+        case 'refresh-metrics':
+            e.preventDefault();
+            if (window.serverMetricsManager && typeof window.serverMetricsManager.refreshAllMetrics === 'function') {
+                window.serverMetricsManager.refreshAllMetrics();
+            }
+            break;
+        case 'hide-shortcuts':
+            e.preventDefault();
+            var modal = document.getElementById('keyboard-shortcuts-modal');
+            if (modal) modal.classList.add('hidden');
+            break;
+        case 'pwa-install':
+            e.preventDefault();
+            if (window.pwaManager && typeof window.pwaManager.install === 'function') pwaManager.install();
+            break;
+        case 'pwa-dismiss':
+            e.preventDefault();
+            if (window.pwaManager && typeof window.pwaManager.dismissBanner === 'function') pwaManager.dismissBanner();
+            break;
+        case 'reload-page':
+        case 'refresh':
+            e.preventDefault();
+            location.reload();
+            break;
+        case 'toggleDark':
+            e.preventDefault();
+            if (typeof enhancedToggleDarkMode === 'function') enhancedToggleDarkMode();
+            else if (typeof window.toggleDarkMode === 'function') window.toggleDarkMode();
+            break;
+        case 'shortcuts':
+            e.preventDefault();
+            if (typeof showKeyboardShortcuts === 'function') showKeyboardShortcuts();
+            break;
+        case 'settings':
+            e.preventDefault();
+            if (typeof window.switchPage === 'function') window.switchPage('settings');
+            break;
+        case 'remove-widget':
+            e.preventDefault();
+            if (window.customDashboardManager && typeof window.customDashboardManager.removeWidget === 'function') {
+                customDashboardManager.removeWidget(target.dataset.widgetId);
+            }
+            break;
+    }
+});
+
+// Handle dark-mode-toggle with change event (no inline onchange)
+document.addEventListener('DOMContentLoaded', function() {
+    var darkToggle = document.getElementById('dark-mode-toggle');
+    if (darkToggle) {
+        darkToggle.addEventListener('change', function() {
+            if (typeof window.toggleDarkMode === 'function') {
+                window.toggleDarkMode();
+            } else if (typeof enhancedToggleDarkMode === 'function') {
+                enhancedToggleDarkMode();
+            }
+        });
+    }
+});
+
+// Handle mobile-overlay click (no inline onclick)
+document.addEventListener('DOMContentLoaded', function() {
+    var overlay = document.getElementById('mobile-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            if (typeof window.toggleMobileSidebar === 'function') {
+                window.toggleMobileSidebar();
+            }
+        });
+    }
+});
+</script>
+
+<script>
 // 🔧 Propagation des événements vers les iframes        window.addEventListener('serverContextChanged', function(event) {            console.log('📡 Dashboard received serverContextChanged:', event.detail);                        // Propager vers tous les iframes            const iframes = document.querySelectorAll('iframe');            iframes.forEach(function(iframe) {                try {                    if (iframe.contentWindow) {                        iframe.contentWindow.postMessage({                            type: 'serverContextChanged',                            detail: event.detail                        }, '*');                        console.log('📤 Event forwarded to iframe:', iframe.id);                    }                } catch (e) {                    console.error('❌ Failed to forward event to iframe:', e);                }            });        });
         // ===== GLOBALS =====
         const API_BASE = window.location.origin + '/api';
@@ -3743,7 +3849,7 @@ class BreadcrumbsManager {
         
         const breadcrumbsHTML = `
             <div class="breadcrumbs" id="breadcrumbs-nav">
-                <a href="#" class="breadcrumb-item" onclick="switchPage('chat'); return false;">
+                <a href="#" class="breadcrumb-item" data-action="switch-page" data-page="dashboard">
                     <i class="fas fa-home breadcrumb-icon"></i>
                     <span>Dashboard</span>
                 </a>
@@ -3760,7 +3866,7 @@ class BreadcrumbsManager {
         const pageInfo = this.getPageInfo(pageName);
         
         const breadcrumbsHTML = `
-            <a href="#" class="breadcrumb-item" onclick="switchPage('chat'); return false;">
+            <a href="#" class="breadcrumb-item" data-action="switch-page" data-page="dashboard">
                 <i class="fas fa-home breadcrumb-icon"></i>
                 <span>Dashboard</span>
             </a>
@@ -3947,7 +4053,7 @@ class KeyboardShortcutsManager {
                         ${this.renderShortcuts()}
                     </div>
                     <div class="shortcuts-modal-footer">
-                        <button class="shortcuts-close-btn" onclick="hideKeyboardShortcuts()">
+                        <button class="shortcuts-close-btn" data-action="hide-shortcuts">
                             Fermer
                         </button>
                     </div>
@@ -4191,10 +4297,10 @@ class PWAManager {
                 <div class="pwa-install-title">📱 Installer l'application</div>
                 <div class="pwa-install-desc">Accès rapide depuis votre écran d'accueil</div>
             </div>
-            <button class="pwa-install-btn" onclick="pwaManager.install()">
+            <button class="pwa-install-btn" data-action="pwa-install">
                 <i class="fas fa-download"></i> Installer
             </button>
-            <button class="pwa-install-close" onclick="pwaManager.dismissBanner()">
+            <button class="pwa-install-close" data-action="pwa-dismiss">
                 <i class="fas fa-times"></i>
             </button>
         `;
@@ -4215,7 +4321,7 @@ class PWAManager {
         banner.id = 'pwa-update-banner';
         banner.innerHTML = `
             <strong>✨ Nouvelle version disponible!</strong><br>
-            <button onclick="location.reload()" style="margin-top: 0.5rem; background: white; color: #10b981; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer;">
+            <button data-action="reload-page" style="margin-top: 0.5rem; background: white; color: #10b981; border: none; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer;">
                 Mettre à jour
             </button>
         `;
@@ -4411,7 +4517,7 @@ class CustomDashboardManager {
                         ${widgetContent.icon} ${widgetContent.title}
                     </div>
                     <div class="widget-actions">
-                        <button class="widget-action-btn" onclick="customDashboardManager.removeWidget('${widgetId}')">
+                        <button class="widget-action-btn" data-action="remove-widget" data-widget-id="${widgetId}">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -4682,7 +4788,7 @@ class DashboardCharts {
     async fetchMetrics() {
         try {
             const token = localStorage.getItem('authToken');
-            const res = await fetch('/api/monitoring/system', {
+            const res = await fetch('/api/monitoring/metrics', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
