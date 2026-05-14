@@ -376,4 +376,23 @@ router.post('/refresh-all', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/server-metrics - List all servers with cached metrics
+ */
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const servers = db.prepare(`
+            SELECT id, name, host, status, cpu_usage, memory_usage, disk_usage, uptime, os_info, last_check
+            FROM servers
+            WHERE user_id = ?
+            ORDER BY name
+        `).all(userId);
+        
+        res.json({ success: true, servers, count: servers.length });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;
