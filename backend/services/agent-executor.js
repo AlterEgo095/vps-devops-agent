@@ -118,7 +118,43 @@ RÉPONSE EN JSON:
         const response = await openaiProvider.sendToOpenAI(messages, 'devops_agent');
         
         try {
-            const plan = JSON.parse(response.message);
+            // Robust JSON extraction - handle AI formatting quirks
+            let jsonStr = response.message;
+            
+            // Remove markdown code blocks if present
+            jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+            
+            // Try to find JSON object boundaries
+            const firstBrace = jsonStr.indexOf('{');
+            const lastBrace = jsonStr.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+            }
+            
+            // Remove trailing commas before } or ] (invalid JSON)
+            jsonStr = jsonStr.replace(/,\s*([\}])/g, '$1');
+            jsonStr = jsonStr.replace(/,\s*([\]])/g, '$1');
+            
+            // Remove single-line comments
+            jsonStr = jsonStr.replace(/\/\/.*$/gm, '');
+            
+            let plan;
+            try {
+                plan = JSON.parse(jsonStr);
+            } catch (firstError) {
+                // Try more aggressive cleaning
+                try {
+                    // Fix unquoted keys
+                    jsonStr = jsonStr.replace(/(\w+)\s*:/g, '"$1":');
+                    // Fix single quotes to double quotes
+                    jsonStr = jsonStr.replace(/'/g, '"');
+                    plan = JSON.parse(jsonStr);
+                } catch (secondError) {
+                    console.error('JSON parse failed after cleanup:', secondError.message);
+                    console.error('Attempted to parse:', jsonStr.substring(0, 500));
+                    throw firstError;
+                }
+            }
             
             // Reclassifier les commandes avec notre système
             if (plan.plan && plan.plan.steps) {
@@ -140,10 +176,12 @@ RÉPONSE EN JSON:
             };
         } catch (parseError) {
             console.error('Failed to parse plan JSON:', parseError);
+            // Return a fallback plan based on the raw response
             return {
                 success: false,
                 error: 'Failed to parse action plan',
-                raw_response: response.message
+                raw_response: response.message,
+                hint: 'AI response was not valid JSON. Try rephrasing your request.'
             };
         }
     } catch (error) {
@@ -221,6 +259,12 @@ export async function executeCommand(serverConfig, command, options = {}) {
             } else {
                 return reject(new Error('No authentication method provided'));
             }
+
+            // Support keyboard-interactive (nécessaire pour certains serveurs PAM)
+            connectionConfig.tryKeyboard = true;
+            conn.on('keyboard-interactive', (name, instructions, lang, prompts, finish) => {
+                finish(prompts.map(() => serverConfig.password || ''));
+            });
 
             conn.connect(connectionConfig);
         } catch (error) {
@@ -555,6 +599,67 @@ export function getExecutionStats(userId) {
     }
 }
 
+
+/**
+ * Teste la connexion SSH à un serveur
+ * @param {Object} server - Serveur avec decrypted_password
+ * @returns {Promise<Object>} Résultat du test
+ */
+export async function testServerConnection(server) {
+    const serverConfig = {
+        host: server.host,
+        port: server.port || 22,
+        username: server.username,
+        password: server.decrypted_password
+    };
+    
+    try {
+        const result = await executeCommand(serverConfig, 'echo OK && uptime && uname -a', { timeout: 10000 });
+        return {
+            online: result.success,
+            message: result.success ? 'Connexion SSH réussie' : 'Échec de connexion SSH',
+            output: result.output || '',
+            error: result.error || null
+        };
+    } catch (error) {
+        return {
+            online: false,
+            message: 'Échec de connexion SSH: ' + error.message,
+            output: '',
+            error: error.message
+        };
+    }
+}
+
+/**
+ * Collecte les métriques d'un serveur
+ * @param {Object} server - Serveur avec decrypted_password
+ * @returns {Promise<Object>} Métriques du serveur
+ */
+export async function collectServerMetrics(server) {
+    const serverConfig = {
+        host: server.host,
+        port: server.port || 22,
+        username: server.username,
+        password: server.decrypted_password
+    };
+    
+    try {
+        const result = await executeCommand(serverConfig, 'echo "CPU:"$(top -bn1 | head -5) && echo "MEM:"$(free -m) && echo "DISK:"$(df -h /) && echo "UPTIME:"$(uptime)', { timeout: 15000 });
+        return {
+            success: result.success,
+            output: result.output || '',
+            error: result.error || null
+        };
+    } catch (error) {
+        return {
+            success: false,
+            output: '',
+            error: error.message
+        };
+    }
+}
+
 export default {
     classifyRisk,
     analyzeRequest,
@@ -565,5 +670,7 @@ export default {
     saveToHistory,
     getCommandHistory,
     getExecutionStats,
+    testServerConnection,
+    collectServerMetrics,
     RISK_LEVELS
 };

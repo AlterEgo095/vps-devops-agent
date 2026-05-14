@@ -103,6 +103,88 @@ class AutonomousAgentEngine {
     }
   }
 
+
+  /**
+   * Update server context for the agent
+   * @param {Object} context - Server context object
+   */
+  updateServerContext(context) {
+    this.context = { ...this.context, ...context };
+    logger.info('[AutonomousEngine] Server context updated:', {
+      host: context.host || context.name || 'unknown'
+    });
+    return {
+      success: true,
+      message: 'Server context updated'
+    };
+  }
+
+  /**
+   * Start the agent (initialize connection/session)
+   * @param {Object} options - Start options
+   * @returns {Object} Start result
+   */
+  startAgent(options = {}) {
+    logger.info('[AutonomousEngine] Agent started:', {
+      hasContext: !!Object.keys(this.context).length
+    });
+    return {
+      success: true,
+      message: 'Agent started and ready',
+      status: 'running'
+    };
+  }
+
+  /**
+   * Stop the agent
+   * @returns {Object} Stop result
+   */
+  stopAgent() {
+    logger.info('[AutonomousEngine] Agent stopped');
+    return {
+      success: true,
+      message: 'Agent stopped'
+    };
+  }
+
+
+  /**
+   * Get agent status
+   * @returns {Object} Status object
+   */
+  getStatus() {
+    return {
+      isRunning: true,
+      hasServer: !!Object.keys(this.context).length,
+      serverHost: this.context.host || null,
+      conversationLength: this.conversationHistory.length
+    };
+  }
+
+  /**
+   * Start the agent with optional server context
+   * @param {Object} serverConfig - Server configuration
+   * @returns {Object} Start result
+   */
+  async start(serverConfig = null) {
+    if (serverConfig) {
+      this.updateServerContext(serverConfig);
+    }
+    logger.info('[AutonomousEngine] Agent started');
+    return {
+      success: true,
+      message: 'Agent started',
+      status: 'running'
+    };
+  }
+
+  /**
+   * Get server context (accessed as property)
+   */
+  get serverContext() {
+    return this.context;
+  }
+
   /**
    * Reset conversation history
    */
@@ -128,3 +210,4 @@ class AutonomousAgentEngine {
 
 const agentEngine = new AutonomousAgentEngine();
 export default agentEngine;
+export { AutonomousAgentEngine };

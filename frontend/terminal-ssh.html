@@ -106,12 +106,23 @@
                 Connexion SSH
             </h2>
             
+            <!-- Saved Servers Dropdown -->
+            <div id="saved-servers-section" class="mb-4" style="display:none;">
+                <label class="block text-sm font-medium mb-2">
+                    <i class="fas fa-server mr-1"></i>Serveurs enregistrés
+                </label>
+                <select id="saved-servers" onchange="loadSavedServer()" 
+                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white">
+                    <option value="">-- Saisie manuelle --</option>
+                </select>
+            </div>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium mb-2">Hôte</label>
-                    <input type="text" id="ssh-host" value="62.84.189.231" 
+                    <label class="block text-sm font-medium mb-2">Hôte <span class="text-red-400">*</span></label>
+                    <input type="text" id="ssh-host" value="" 
                            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                           placeholder="ex: 192.168.1.100">
+                           placeholder="ex: 192.168.1.100 ou vps.example.com" required>
                 </div>
                 
                 <div>
@@ -122,31 +133,46 @@
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium mb-2">Utilisateur</label>
-                    <input type="text" id="ssh-username" value="root"
+                    <label class="block text-sm font-medium mb-2">Utilisateur <span class="text-red-400">*</span></label>
+                    <input type="text" id="ssh-username" value=""
                            class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                           placeholder="root">
+                           placeholder="ex: root, admin, ubuntu" required>
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium mb-2">Mot de passe</label>
-                    <input type="password" id="ssh-password" value="Matand@095"
-                           class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                           placeholder="•••••••">
+                    <label class="block text-sm font-medium mb-2">Mot de passe <span class="text-red-400">*</span></label>
+                    <div class="relative">
+                        <input type="password" id="ssh-password" value=""
+                               class="w-full px-4 py-2 pr-10 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                               placeholder="Mot de passe SSH" required>
+                        <button type="button" onclick="togglePasswordVisibility()" 
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                            <i id="pwd-toggle-icon" class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             
-            <div class="mt-6 flex space-x-4">
+            <!-- Connection status message -->
+            <div id="connection-status" class="mt-3 text-sm" style="display:none;"></div>
+            
+            <div class="mt-6 flex flex-wrap gap-3">
                 <button id="connect-btn" onclick="connectSSH()" 
-                        class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition">
+                        class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition flex items-center">
                     <i class="fas fa-plug mr-2"></i>
-                    Connecter
+                    <span id="connect-btn-text">Connecter</span>
                 </button>
                 
                 <button id="disconnect-btn" onclick="disconnectSSH()" disabled
-                        class="px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="px-6 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
                     <i class="fas fa-times-circle mr-2"></i>
                     Déconnecter
+                </button>
+                
+                <button id="test-btn" onclick="testConnection()" 
+                        class="px-6 py-3 bg-green-600 hover:bg-green-500 rounded-lg font-medium transition flex items-center">
+                    <i class="fas fa-vial mr-2"></i>
+                    Tester la connexion
                 </button>
             </div>
         </div>
@@ -191,6 +217,186 @@
         let fitAddon = null;
         let connected = false;
         let authToken = null;
+        let savedServersList = [];
+
+        // ============================================
+        // FONCTIONS UTILITAIRES
+        // ============================================
+
+        /** Toggle password visibility */
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('ssh-password');
+            const icon = document.getElementById('pwd-toggle-icon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                pwdInput.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        /** Show connection status message */
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('connection-status');
+            const colors = {
+                info: 'text-blue-400',
+                success: 'text-green-400',
+                error: 'text-red-400',
+                warning: 'text-yellow-400'
+            };
+            statusDiv.className = `mt-3 text-sm ${colors[type] || colors.info}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            // Auto-hide after 10s for success messages
+            if (type === 'success') {
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 10000);
+            }
+        }
+
+        /** Hide connection status */
+        function hideStatus() {
+            document.getElementById('connection-status').style.display = 'none';
+        }
+
+        // ============================================
+        // GESTION DES SERVEURS ENREGISTRÉS
+        // ============================================
+
+        /** Load saved servers from API */
+        async function loadSavedServers() {
+            try {
+                if (!authToken) {
+                    authToken = localStorage.getItem('authToken');
+                }
+                if (!authToken) return;
+
+                const response = await fetch('/api/agent/servers', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    savedServersList = result.data;
+                    const select = document.getElementById('saved-servers');
+                    select.innerHTML = '<option value="">-- Saisie manuelle --</option>';
+                    result.data.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.id;
+                        option.textContent = `${server.name} (${server.host}:${server.port})`;
+                        select.appendChild(option);
+                    });
+                    document.getElementById('saved-servers-section').style.display = 'block';
+                }
+            } catch (error) {
+                console.warn('Could not load saved servers:', error);
+            }
+        }
+
+        /** Load saved server credentials into form */
+        function loadSavedServer() {
+            const select = document.getElementById('saved-servers');
+            const serverId = select.value;
+            
+            if (!serverId) {
+                // Manual entry - clear fields
+                document.getElementById('ssh-host').value = '';
+                document.getElementById('ssh-port').value = '22';
+                document.getElementById('ssh-username').value = '';
+                document.getElementById('ssh-password').value = '';
+                return;
+            }
+            
+            const server = savedServersList.find(s => s.id == serverId);
+            if (server) {
+                document.getElementById('ssh-host').value = server.host;
+                document.getElementById('ssh-port').value = server.port || 22;
+                document.getElementById('ssh-username').value = server.username;
+                // Password needs to be fetched via test endpoint or left empty
+                // For security, we don't return encrypted passwords in the list
+                document.getElementById('ssh-password').value = '';
+                document.getElementById('ssh-password').focus();
+                showStatus('Entrez le mot de passe pour ce serveur', 'info');
+            }
+        }
+
+        // ============================================
+        // TEST DE CONNEXION
+        // ============================================
+
+        /** Test SSH connection before opening terminal */
+        async function testConnection() {
+            const host = document.getElementById('ssh-host').value.trim();
+            const port = document.getElementById('ssh-port').value;
+            const username = document.getElementById('ssh-username').value.trim();
+            const password = document.getElementById('ssh-password').value;
+
+            if (!host || !username || !password) {
+                showStatus('Veuillez remplir tous les champs (hôte, utilisateur, mot de passe)', 'warning');
+                return;
+            }
+
+            if (!authToken) {
+                authToken = localStorage.getItem('authToken');
+                if (!authToken) {
+                    showStatus('Non authentifié. Veuillez vous reconnecter.', 'error');
+                    return;
+                }
+            }
+
+            showStatus('Test de connexion en cours...', 'info');
+            document.getElementById('test-btn').disabled = true;
+
+            try {
+                // Validate auth token first
+                if (!authToken || authToken === 'undefined' || authToken === 'null') {
+                    authToken = localStorage.getItem('authToken');
+                }
+                if (!authToken) {
+                    showStatus('Session expiree. Reconnectez-vous.', 'error');
+                    document.getElementById('test-btn').disabled = false;
+                    return;
+                }
+                
+                // First sync/create the server, then test it
+                const syncResponse = await fetch('/api/agent/servers/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        host, port: parseInt(port), username, password,
+                        name: `${username}@${host}`,
+                        description: 'Ajouté depuis Terminal SSH'
+                    })
+                });
+                const syncResult = await syncResponse.json();
+                
+                if (syncResult.success && syncResult.serverId) {
+                    // Now test the connection
+                    const testResponse = await fetch(`/api/agent/servers/${syncResult.serverId}/test`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${authToken}` }
+                    });
+                    const testResult = await testResponse.json();
+                    
+                    if (testResult.success && testResult.data && testResult.data.online) {
+                        showStatus('Connexion réussie! Le serveur est accessible.', 'success');
+                        term.writeln('\x1b[32m✓ Test de connexion réussi — serveur ' + host + ' accessible\x1b[0m');
+                    } else {
+                        showStatus('Échec de connexion: ' + (testResult.data?.message || 'Serveur inaccessible'), 'error');
+                        term.writeln('\x1b[31m✗ Test de connexion échoué: ' + (testResult.data?.message || 'erreur inconnue') + '\x1b[0m');
+                    }
+                } else {
+                    showStatus('Erreur lors de l\'enregistrement: ' + (syncResult.error || 'erreur inconnue'), 'error');
+                }
+            } catch (error) {
+                showStatus('Erreur: ' + error.message, 'error');
+            } finally {
+                document.getElementById('test-btn').disabled = false;
+            }
+        }
 
         // Initialiser xterm.js
         function initTerminal() {
@@ -331,12 +537,13 @@
 
 
         async function connectSSH() {
-            const host = document.getElementById('ssh-host').value;
+            const host = document.getElementById('ssh-host').value.trim();
             const port = document.getElementById('ssh-port').value;
-            const username = document.getElementById('ssh-username').value;
+            const username = document.getElementById('ssh-username').value.trim();
             const password = document.getElementById('ssh-password').value;
 
             if (!host || !username || !password) {
+                showStatus('Veuillez remplir tous les champs (hôte, utilisateur, mot de passe)', 'warning');
                 term.writeln('\x1b[1;31m✗ Erreur: Veuillez remplir tous les champs\x1b[0m');
                 return;
             }
@@ -345,17 +552,18 @@
             if (!authToken) {
                 authToken = localStorage.getItem('authToken');
                 if (!authToken) {
+                    showStatus('Non authentifié. Redirection...', 'error');
                     term.writeln('\x1b[1;31m✗ Erreur: Non authentifié. Veuillez vous connecter.\x1b[0m');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 2000);
+                    setTimeout(() => { window.location.href = '/'; }, 2000);
                     return;
                 }
             }
 
             // Mettre à jour le statut
             updateStatus('connecting', 'Connexion en cours...');
+            showStatus('Connexion en cours...', 'info');
             document.getElementById('connect-btn').disabled = true;
+            document.getElementById('connect-btn-text').textContent = 'Connexion...';
 
             term.writeln('\x1b[1;36m→ Connexion à ' + host + ':' + port + ' en tant que ' + username + '...\x1b[0m');
 
@@ -364,6 +572,16 @@
             const wsUrl = `${protocol}//${window.location.host}/api/terminal/ws`;
             
             ws = new WebSocket(wsUrl);
+
+            // Timeout de connexion WebSocket (15s)
+            const wsTimeout = setTimeout(() => {
+                if (ws && ws.readyState !== WebSocket.OPEN) {
+                    ws.close();
+                    showStatus('Délai d\'attente dépassé pour la connexion WebSocket', 'error');
+                    term.writeln('\x1b[1;31m✗ Délai d\'attente dépassé pour la connexion WebSocket\x1b[0m');
+                    disconnectSSH();
+                }
+            }, 15000);
 
             ws.onopen = () => {
                 console.log('WebSocket connected');
@@ -380,6 +598,7 @@
                     const message = JSON.parse(event.data);
                     
                     if (message.type === 'auth_success') {
+                        clearTimeout(wsTimeout);
                         // Auth réussie, maintenant connecter SSH
                         ws.send(JSON.stringify({
                             type: 'connect',
@@ -393,19 +612,20 @@
                     } else if (message.type === 'connected') {
                         connected = true;
                         updateStatus('connected', `Connecté à ${host}`);
+                        showStatus('Connecté avec succès! Serveur enregistré.', 'success');
                 
-                // Synchroniser automatiquement le serveur avec Agent DevOps
-                syncServerToAgent({
-                    host: host,
-                    port: port,
-                    username: username,
-                    password: password
-                });
+                        // Synchroniser automatiquement le serveur avec Agent DevOps
+                        syncServerToAgent({
+                            host: host,
+                            port: port,
+                            username: username,
+                            password: password
+                        });
                         
-                        // 🔧 NOUVEAU: Dispatcher l'événement pour l'Assistant AI
+                        // Dispatcher l'événement pour l'Assistant AI
                         window.dispatchEvent(new CustomEvent('serverContextChanged', {
                             detail: {
-                                id: null, // Sera rempli par syncServerToAgent
+                                id: null,
                                 host: host,
                                 port: port,
                                 username: username,
@@ -413,12 +633,13 @@
                                 connected: true
                             }
                         }));
-                        console.log('📡 Event dispatched: serverContextChanged');
+                        console.log('Event dispatched: serverContextChanged');
                         
                         document.getElementById('connect-btn').disabled = true;
+                        document.getElementById('connect-btn-text').textContent = 'Connecté';
                         document.getElementById('disconnect-btn').disabled = false;
                         document.getElementById('terminal-title').textContent = `${username}@${host}`;
-                        term.writeln('\x1b[1;32m✓ Connecté!\x1b[0m\n');
+                        term.writeln('\x1b[1;32m✓ Connecté avec succès!\x1b[0m\n');
                         
                         // Envoyer la taille du terminal
                         ws.send(JSON.stringify({
@@ -429,7 +650,8 @@
                     } else if (message.type === 'data') {
                         term.write(message.data);
                     } else if (message.type === 'error') {
-                        term.writeln('\x1b[1;31m✗ Erreur: ' + message.message + '\x1b[0m');
+                        term.writeln('\x1b[1;31m✗ ' + message.message + '\x1b[0m');
+                        showStatus(message.message, 'error');
                         disconnectSSH();
                     } else if (message.type === 'disconnected') {
                         term.writeln('\n\x1b[1;33m→ ' + message.message + '\x1b[0m');
@@ -441,15 +663,19 @@
             };
 
             ws.onerror = (error) => {
+                clearTimeout(wsTimeout);
                 console.error('WebSocket error:', error);
+                showStatus('Erreur de connexion WebSocket. Vérifiez votre connexion réseau.', 'error');
                 term.writeln('\x1b[1;31m✗ Erreur de connexion WebSocket\x1b[0m');
                 disconnectSSH();
             };
 
             ws.onclose = () => {
+                clearTimeout(wsTimeout);
                 console.log('WebSocket closed');
                 if (connected) {
                     term.writeln('\n\x1b[1;33m→ Connexion fermée\x1b[0m');
+                    showStatus('Connexion fermée', 'warning');
                 }
                 disconnectSSH();
             };
@@ -465,6 +691,7 @@
             connected = false;
             updateStatus('disconnected', 'Déconnecté');
             document.getElementById('connect-btn').disabled = false;
+            document.getElementById('connect-btn-text').textContent = 'Connecter';
             document.getElementById('disconnect-btn').disabled = true;
             document.getElementById('terminal-title').textContent = 'Terminal SSH';
         }
@@ -498,6 +725,11 @@
         // Initialiser au chargement
         document.addEventListener('DOMContentLoaded', () => {
             initTerminal();
+            // Charger les serveurs enregistrés
+            authToken = localStorage.getItem('authToken');
+            if (authToken) {
+                loadSavedServers();
+            }
         });
 
         // Nettoyage à la fermeture

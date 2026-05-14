@@ -366,4 +366,52 @@ router.post("/remote", async (req, res) => {
 });
 
 
+
+// GET /api/monitoring/sync - Collect metrics and update servers table
+router.get('/sync', async (req, res) => {
+  try {
+    const metrics = await systemMonitor.collectMetrics();
+    
+    // Update the first server in the servers table with real metrics
+    const cpuUsage = metrics.cpu?.usage || 0;
+    const memoryUsage = metrics.memory?.percent || 0;
+    // Get uptime from metrics or calculate
+    const uptimeSeconds = metrics.uptime || Math.floor(Date.now() / 1000);
+    const diskUsage = metrics.disk?.percent || 0;
+    
+    try {
+      const { db: database } = await import('../services/database-sqlite.js');
+      database.prepare(`
+        UPDATE servers SET 
+          cpu_usage = ?,
+          memory_usage = ?,
+          uptime = ?,
+          disk_usage = ?,
+          last_check = datetime('now'),
+          status = 'active'
+        WHERE id = (SELECT MIN(id) FROM servers)
+      `).run(cpuUsage, memoryUsage, uptimeSeconds, diskUsage);
+    } catch (dbErr) {
+      console.error('Error updating server metrics in DB:', dbErr.message);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        cpu: cpuUsage,
+        memory: memoryUsage,
+        uptime: uptimeSeconds,
+        disk: diskUsage,
+        timestamp: Date.now()
+      }
+    });
+  } catch (error) {
+    console.error('Error syncing metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync metrics'
+    });
+  }
+});
+
 export default router;

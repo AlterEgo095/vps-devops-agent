@@ -15,7 +15,7 @@ router.use(authenticateToken);
  */
 router.get('/', async (req, res) => {
   try {
-    const result = await capabilities.listDirectory('.');
+    const result = await capabilities.listFiles('.');
     
     res.json({
       success: true,
@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
 router.get('/:name', async (req, res) => {
   try {
     const { name } = req.params;
-    const result = await capabilities.listDirectory(name);
+    const result = await capabilities.listFiles(name);
     
     res.json({
       success: true,
@@ -101,12 +101,13 @@ router.get('/:name/docker/logs/:container', async (req, res) => {
     const { container } = req.params;
     const { tail = 100 } = req.query;
     
-    const result = await capabilities.dockerLogs(container, parseInt(tail));
+    const { secureExec } = await import('../services/secure-exec.js');
+    const { stdout, stderr } = await secureExec('docker', ['logs', '--tail', String(parseInt(tail) || 100), container], { timeout: 30000 });
     
     res.json({
       success: true,
       container,
-      logs: result.logs
+      logs: stdout || stderr
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -129,7 +130,7 @@ router.delete('/:name', validateParams(projectNameParamSchema), validateQuery(de
       });
     }
     
-    const result = await capabilities.delete(name);
+    const result = await capabilities.deleteDirectory(name);
     
     res.json({
       success: true,

@@ -6,11 +6,12 @@
 class AIAssistant {
     constructor() {
         this.currentServer = null;
+        this.conversationId = null;
         this.messages = [];
         this.isTyping = false;
         this.isMinimized = false;
         this.API_BASE = window.location.origin + '/api';
-        this.authToken = localStorage.getItem('token');
+        this.authToken = localStorage.getItem('authToken');
         
         this.init();
     }
@@ -149,7 +150,7 @@ class AIAssistant {
 
     async fetchServerDetails(serverId) {
         try {
-            const response = await fetch(`${this.API_BASE}/agent/servers`, {
+            const response = await fetch(`${this.API_BASE}/servers`, {
                 headers: {
                     'Authorization': `Bearer ${this.authToken}`
                 }
@@ -157,7 +158,7 @@ class AIAssistant {
             
             if (response.ok) {
                 const data = await response.json();
-                const server = data.data.find(s => s.id == serverId);
+                const server = (data.servers || []).find(s => s.id == serverId);
                 if (server) {
                     this.updateServerContext(server);
                 }
@@ -304,8 +305,23 @@ class AIAssistant {
 
         // Check if server is selected
         if (!this.currentServer) {
-            this.addMessage('system', '⚠️ Veuillez d\'abord sélectionner un serveur dans le dashboard.');
-            return;
+            // Auto-select the first available server
+            try {
+                const resp = await fetch(`${this.API_BASE}/servers`, {
+                    headers: { 'Authorization': `Bearer ${this.authToken}` }
+                });
+                const srvData = await resp.json();
+                if (srvData.success && srvData.servers && srvData.servers.length > 0) {
+                    this.currentServer = srvData.servers[0];
+                    this.updateServerContext(this.currentServer);
+                    localStorage.setItem('currentServerId', this.currentServer.id);
+                }
+            } catch(e) { console.error('Auto-select server failed:', e); }
+            
+            if (!this.currentServer) {
+                this.addMessage('system', '⚠️ Aucun serveur disponible. Ajoutez un serveur dans les paramètres.');
+                return;
+            }
         }
 
         // Add user message
@@ -318,31 +334,48 @@ class AIAssistant {
         this.showTypingIndicator();
 
         try {
-            // Call AI endpoint with natural language
-            const response = await fetch(`${this.API_BASE}/ai/agent/chat`, {
+            // Auto-create conversation if needed, then send message
+            if (!this.conversationId) {
+                try {
+                    const convResp = await fetch(`${this.API_BASE}/ai/conversations`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.authToken}`
+                        },
+                        body: JSON.stringify({ title: 'Assistant AI' })
+                    });
+                    const convData = await convResp.json();
+                    if (convData.success && convData.data) {
+                        this.conversationId = convData.data.id;
+                    }
+                } catch (e) {
+                    console.error('Error creating conversation:', e);
+                }
+            }
+
+            const response = await fetch(`${this.API_BASE}/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.authToken}`
                 },
                 body: JSON.stringify({
+                    conversationId: this.conversationId,
                     message: userMessage,
-                    serverId: this.currentServer.id,
-                    context: {
+                    context: this.currentServer ? {
                         serverName: this.currentServer.name,
                         serverHost: this.currentServer.host
-                    }
+                    } : undefined
                 })
             });
 
             const data = await response.json();
 
-            if (data.success) {
+            if (data.success && data.data) {
                 // Add AI response
-                this.addMessage('assistant', data.response, {
-                    command: data.command,
-                    output: data.output
-                });
+                const assistantMsg = data.data.assistantMessage || data.data;
+                this.addMessage('assistant', assistantMsg.content || data.data.message || 'Réponse reçue');
             } else {
                 this.addMessage('assistant', `❌ Erreur: ${data.error || 'Une erreur est survenue'}`);
             }

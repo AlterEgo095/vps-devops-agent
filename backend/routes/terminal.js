@@ -7,7 +7,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { db } from '../services/database-sqlite.js';
 import * as sshTerminal from '../services/ssh-terminal.js';
-import { decryptPassword } from '../services/crypto-manager.js';
+import { decryptPassword, encryptPassword } from '../services/crypto-manager.js';
 import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 import logger from '../config/logger.js';
@@ -126,7 +126,14 @@ export function initializeWebSocket(server) {
                         };
                     } else if (data.serverConfig) {
                         // Connexion directe avec config fournie
-                        serverConfig = data.serverConfig;
+                        // Ensure proper types (port must be integer)
+                        serverConfig = {
+                            host: String(data.serverConfig.host || ''),
+                            port: parseInt(data.serverConfig.port) || 22,
+                            username: String(data.serverConfig.username || ''),
+                            password: String(data.serverConfig.password || '')
+                        };
+                        logger.info(`[Terminal-WS] Direct connection: host=${serverConfig.host}, port=${serverConfig.port}, user=${serverConfig.username}, pwdLen=${serverConfig.password.length}`);
                     } else {
                         ws.send(JSON.stringify({
                             type: 'error',
@@ -136,8 +143,52 @@ export function initializeWebSocket(server) {
                     }
                     
                     // Créer la session SSH
-                    logger.info(`Creating SSH session to ${serverConfig.host}:${serverConfig.port}`);
+                    logger.info(`Creating SSH session to ${serverConfig.host}:${serverConfig.port} as ${serverConfig.username}`);
                     sshTerminal.createSSHSession(sessionId, serverConfig, ws);
+                    
+                    // AUTO-SAVE: Register server in DB after successful SSH connection
+                    // Check after 3 seconds if session is still active (SSH connected)
+                    const _saveUserId = decoded.id || 'default';
+                    const _saveConfig = { ...serverConfig };
+                    setTimeout(() => {
+                        const sessionInfo = sshTerminal.getSessionInfo(sessionId);
+                        if (sessionInfo) {
+                            // SSH connected - auto-register the server
+                            try {
+                                const existing = db.prepare(
+                                    'SELECT id FROM servers WHERE host = ? AND port = ? AND username = ? AND user_id = ?'
+                                ).get(_saveConfig.host, _saveConfig.port || 22, _saveConfig.username, _saveUserId);
+                                
+                                if (existing) {
+                                    const encCreds = encryptPassword(_saveConfig.password);
+                                    db.prepare(
+                                        'UPDATE servers SET encrypted_credentials = ?, status = ?, last_check = datetime('now'), updated_at = datetime('now') WHERE id = ?'
+                                    ).run(encCreds, 'online', existing.id);
+                                    logger.info(`[Terminal] Auto-updated server ${existing.id}`);
+                                    try { ws.send(JSON.stringify({ type: 'server_saved', serverId: existing.id, action: 'updated' })); } catch(e) {}
+                                } else if (_saveConfig.password) {
+                                    const encCreds = encryptPassword(_saveConfig.password);
+                                    const result = db.prepare(
+                                        'INSERT INTO servers (user_id, name, host, port, username, auth_type, encrypted_credentials, description, status, last_check, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))'
+                                    ).run(
+                                        _saveUserId,
+                                        _saveConfig.username + '@' + _saveConfig.host,
+                                        _saveConfig.host,
+                                        _saveConfig.port || 22,
+                                        _saveConfig.username,
+                                        'password',
+                                        encCreds,
+                                        'Auto-enregistre9 depuis Terminal SSH',
+                                        'online'
+                                    );
+                                    logger.info(`[Terminal] Auto-saved new server ${result.lastInsertRowid}`);
+                                    try { ws.send(JSON.stringify({ type: 'server_saved', serverId: result.lastInsertRowid, action: 'created' })); } catch(e) {}
+                                }
+                            } catch (saveErr) {
+                                logger.error('[Terminal] Auto-save error:', { error: saveErr.message });
+                            }
+                        }
+                    }, 3000);
                 }
                 
                 // Envoyer des données au terminal

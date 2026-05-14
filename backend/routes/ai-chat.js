@@ -12,7 +12,7 @@
  */
 
 import express from 'express';
-import crypto from 'crypto';
+import { decryptPassword } from '../services/crypto-manager.js';
 import { db } from '../services/database-sqlite.js';
 import { authenticateToken } from '../middleware/auth.js';
 import reactOrchestrator from '../services/react/orchestrator.js';
@@ -29,25 +29,7 @@ router.use(authenticateToken);
  * @param {string} secret
  * @returns {string}
  */
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
-  if (!encryptedCredentials) return '';
-
-  if (encryptedCredentials.includes(':')) {
-    try {
-      const [ivHex, encryptedHex] = encryptedCredentials.split(':');
-      const iv = Buffer.from(ivHex, 'hex');
-      const key = crypto.scryptSync(secret, 'salt', 32);
-      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-
-      let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      return decrypted;
-    } catch (error) {
-      return Buffer.from(encryptedCredentials, 'base64').toString();
-    }
-  }
-  return Buffer.from(encryptedCredentials, 'base64').toString();
-}
+// decryptPassword imported from crypto-manager.js
 
 /**
  * Build serverConfig from a server DB row

@@ -6,7 +6,8 @@
 
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import agentEngine from '../services/autonomous-agent-engine.js';
+import agentEngine, { AutonomousAgentEngine } from '../services/autonomous-agent-engine.js';
+import { decryptPassword } from '../services/crypto-manager.js';
 import { db } from '../services/database-sqlite.js';
 
 const router = express.Router();
@@ -60,12 +61,20 @@ router.post('/chat', async (req, res) => {
             `).get(serverId, userId);
             
             if (server) {
+                // Decrypt SSH credentials
+                let sshPassword = null;
+                try {
+                    sshPassword = decryptPassword(server.encrypted_credentials);
+                } catch (e) {
+                    sshPassword = server.encrypted_credentials;
+                }
+                
                 context = {
                     id: server.id,
                     host: server.host,
-                    port: server.port,
+                    port: server.port || 22,
                     username: server.username,
-                    password: server.password,
+                    password: sshPassword,
                     auth_type: server.auth_type,
                     name: server.name
                 };

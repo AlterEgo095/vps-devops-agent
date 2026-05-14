@@ -8,7 +8,7 @@ import AlertManager from './alert-manager.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = path.join(__dirname, '../../data/database.sqlite');
+const dbPath = path.join(__dirname, '../../data/devops-agent.db');
 
 class PipelineRunner {
   constructor() {

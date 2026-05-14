@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Gère users, sessions, audit_logs, permissions
  */
 class RBACDatabase {
-  constructor(dbPath = join(__dirname, '../../data/rbac.db')) {
+  constructor(dbPath = join(__dirname, '../../data/devops-agent.db')) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');

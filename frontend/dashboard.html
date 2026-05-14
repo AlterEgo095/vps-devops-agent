@@ -2179,6 +2179,11 @@ body.dark-mode .widget-template-name {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="VPS DevOps Agent">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="/assets/icon-152.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/assets/icon-192.png">
+    <meta name="msapplication-TileColor" content="#667eea">
+    <meta name="msapplication-TileImage" content="/assets/icon-144.png">
     
     <!-- External Libraries for Phase 3 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.1.0/dist/gridstack.min.css" />
@@ -2556,6 +2561,27 @@ console.log('✅ All REAL functions defined in HEAD!');
         </div>
     </div>
 </div>
+
+                
+                <!-- Real-time Server Metrics Section -->
+                <div id="server-metrics-container" style="margin: 20px 0; padding: 0 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 style="color: #e2e8f0; font-size: 18px; font-weight: 600; margin: 0;">
+                            <i class="fas fa-chart-bar" style="color: #667eea; margin-right: 8px;"></i>
+                            Metriques Serveur en Temps Reel
+                        </h2>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span id="metrics-refresh-indicator" style="display: none; color: #667eea; font-size: 13px;">
+                                <i class="fas fa-spinner fa-spin"></i> Rafraichissement...
+                            </span>
+                            <button onclick="window.serverMetricsManager.refreshAllMetrics()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                                <i class="fas fa-sync-alt"></i> Actualiser
+                            </button>
+                        </div>
+                    </div>
+                    <div id="metrics-cards-wrapper" style="display: grid; gap: 16px;">
+                    </div>
+                </div>
 
                 <!-- Chat AI Page -->
                 <div id="page-chat" class="page-content">
@@ -3101,16 +3127,16 @@ class QuickStatsManager {
             };
         }
 
-        const activeServers = servers.filter(s => s.status === 'active' || s.status === 'online');
-        const cpuSum = servers.reduce((sum, s) => sum + (s.cpu_usage || 0), 0);
-        const ramSum = servers.reduce((sum, s) => sum + (s.memory_usage || 0), 0);
-        const uptimeSum = servers.reduce((sum, s) => sum + (s.uptime || 0), 0);
+        const activeServers = servers.filter(s => s.status && s.status !== 'offline' && s.status !== 'deleted');
+        const cpuSum = activeServers.reduce((sum, s) => sum + (s.cpu_usage || 0), 0);
+        const ramSum = activeServers.reduce((sum, s) => sum + (s.memory_usage || 0), 0);
+        const uptimeSum = activeServers.reduce((sum, s) => sum + (s.uptime || 0), 0);
 
         return {
             serversCount: activeServers.length,
-            cpuAvg: servers.length ? Math.round(cpuSum / servers.length) : 0,
-            ramAvg: servers.length ? Math.round(ramSum / servers.length) : 0,
-            uptimeAvg: servers.length ? Math.round(uptimeSum / servers.length / 86400) : 0 // Convert to days
+            cpuAvg: activeServers.length ? Math.round(cpuSum / activeServers.length) : 0,
+            ramAvg: activeServers.length ? Math.round(ramSum / activeServers.length) : 0,
+            uptimeAvg: activeServers.length ? Math.round(uptimeSum / activeServers.length / 86400) : 0 // Convert to days
         };
     }
 
@@ -4450,5 +4476,8 @@ function initializePhase3Enhancements() {
 }
 
 </script>
+    <!-- Premium PWA Scripts -->
+    <script src="/pwa-manager.js"></script>
+    <script src="/server-metrics.js"></script>
 </body>
 </html>

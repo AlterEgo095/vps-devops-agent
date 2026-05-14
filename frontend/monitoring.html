@@ -649,7 +649,7 @@
         // Load current metrics
         async function loadMetrics() {
             try {
-                const response = await fetch('/api/monitoring/metrics');
+                const response = await fetch('/api/monitoring/metrics', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') } });
                 const result = await response.json();
 
                 if (result.success) {
@@ -784,7 +784,7 @@
                 document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
                 event.target.classList.add('active');
 
-                const response = await fetch(`/api/monitoring/metrics/history?period=${period}&limit=200`);
+                const response = await fetch(`/api/monitoring/metrics/history?period=${period}&limit=200`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') } });
                 const result = await response.json();
 
                 if (result.success && result.data.metrics.length > 0) {

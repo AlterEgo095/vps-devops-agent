@@ -41,6 +41,12 @@ class SSHExecutor {
         return reject(new Error('Aucune méthode d authentification SSH configurée'));
       }
 
+      // Support keyboard-interactive (nécessaire pour certains serveurs PAM)
+      sshConfig.tryKeyboard = true;
+      this.conn.on('keyboard-interactive', (name, instructions, lang, prompts, finish) => {
+        finish(prompts.map(() => this.config.password || ''));
+      });
+
       this.conn.on('ready', () => {
         this.connected = true;
         console.log('✅ SSH connecté:', this.config.host);

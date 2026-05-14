@@ -6,6 +6,7 @@
  */
 
 import express from 'express';
+import { decryptPassword } from '../services/crypto-manager.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { registry, executor } from '../services/tools/index.js';
 
@@ -97,19 +98,7 @@ router.post('/:name/execute', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Server not found' });
       }
       // Decrypt credentials
-      const crypto = await import('crypto');
-      const secret = process.env.JWT_SECRET || 'default-secret';
-      try {
-        const [ivHex, encryptedHex] = server.encrypted_credentials.split(':');
-        const iv = Buffer.from(ivHex, 'hex');
-        const key = crypto.scryptSync(secret, 'salt', 32);
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        config = { host: server.host, port: server.port || 22, username: server.username, password: decrypted };
-      } catch {
-        config = { host: server.host, port: server.port || 22, username: server.username, password: Buffer.from(server.encrypted_credentials, 'base64').toString() };
-      }
+      config = { host: server.host, port: server.port || 22, username: server.username, password: decryptPassword(server.encrypted_credentials) };
     }
 
     const result = await executor.execute(name, args || {}, config, {

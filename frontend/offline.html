@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hors ligne - VPS DevOps Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow: hidden;
+        }
+        .bg-particles {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(102,126,234,0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(118,75,162,0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .container {
+            text-align: center;
+            max-width: 520px;
+            position: relative;
+            z-index: 1;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 56px;
+            box-shadow: 0 20px 60px rgba(102,126,234,0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .pulse-ring {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border-radius: 40px;
+            border: 2px solid rgba(102,126,234,0.3);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 2s ease-out infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+        .logo-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 32px;
+        }
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+        .status-card {
+            background: rgba(30,41,59,0.8);
+            border: 1px solid rgba(102,126,234,0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+        .status-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f59e0b;
+            animation: blink 2s infinite;
+        }
+        .status-dot.online { background: #10b981; }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .status-value {
+            font-size: 14px;
+            color: #e2e8f0;
+        }
+        .retry-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+        }
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102,126,234,0.5);
+        }
+        .retry-btn:active {
+            transform: translateY(0);
+        }
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: #475569;
+        }
+        .cached-info {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .cached-pages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+        .cached-page {
+            background: rgba(102,126,234,0.15);
+            border: 1px solid rgba(102,126,234,0.2);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #a5b4fc;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .cached-page:hover {
+            background: rgba(102,126,234,0.25);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-particles"></div>
+    <div class="container">
+        <div class="logo-wrapper">
+            <div class="logo">📡</div>
+            <div class="pulse-ring"></div>
+        </div>
+        
+        <h1>Connexion perdue</h1>
+        <p class="subtitle">
+            VPS DevOps Agent nécessite une connexion internet pour accéder à vos serveurs.
+            Vérifiez votre réseau et réessayez.
+        </p>
+        
+        <div class="status-card">
+            <div class="status-row">
+                <span class="status-label">
+                    <span class="status-dot" id="connectionDot"></span>
+                    Connexion Internet
+                </span>
+                <span class="status-value" id="connectionStatus">Vérification...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">
+                    <span class="status-dot online"></span>
+                    Service Worker
+                </span>
+                <span class="status-value">Actif (v2.0)</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">
+                    <span class="status-dot online"></span>
+                    Pages en cache
+                </span>
+                <span class="status-value" id="cachedCount">-</span>
+            </div>
+        </div>
+        
+        <button class="retry-btn" onclick="retryConnection()">
+            🔄 Réessayer la connexion
+        </button>
+        
+        <div class="cached-info">
+            <p>Pages disponibles hors ligne :</p>
+            <div class="cached-pages" id="cachedPages"></div>
+        </div>
+        
+        <div class="footer">
+            VPS DevOps Agent Premium PWA v2.0 | <span id="lastCheck"></span>
+        </div>
+    </div>
+
+    <script>
+        // Check connection status
+        function updateConnectionStatus() {
+            const dot = document.getElementById('connectionDot');
+            const status = document.getElementById('connectionStatus');
+            
+            if (navigator.onLine) {
+                dot.classList.add('online');
+                status.textContent = 'Connecté';
+                status.style.color = '#10b981';
+            } else {
+                dot.classList.remove('online');
+                status.textContent = 'Déconnecté';
+                status.style.color = '#f59e0b';
+            }
+        }
+        
+        // Get cached pages
+        async function getCachedPages() {
+            if (!caches) return;
+            const pages = [];
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+                const cache = await caches.open(name);
+                const requests = await cache.keys();
+                for (const req of requests) {
+                    const url = new URL(req.url);
+                    if (url.pathname.endsWith('.html') && url.pathname !== '/offline.html') {
+                        const name = url.pathname.replace('/', '').replace('.html', '');
+                        pages.push({ url: url.pathname, name: name.charAt(0).toUpperCase() + name.slice(1) });
+                    }
+                }
+            }
+            
+            const container = document.getElementById('cachedPages');
+            const countEl = document.getElementById('cachedCount');
+            countEl.textContent = `${pages.length} pages`;
+            
+            container.innerHTML = pages.slice(0, 8).map(p => 
+                `<a href="${p.url}" class="cached-page">${p.name}</a>`
+            ).join('');
+        }
+        
+        function retryConnection() {
+            if (navigator.onLine) {
+                window.location.href = '/dashboard.html';
+            } else {
+                window.location.reload();
+            }
+        }
+        
+        // Listen for connection changes
+        window.addEventListener('online', () => {
+            updateConnectionStatus();
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 1000);
+        });
+        
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Init
+        updateConnectionStatus();
+        getCachedPages();
+        document.getElementById('lastCheck').textContent = new Date().toLocaleTimeString('fr-FR');
+    </script>
+</body>
+</html>

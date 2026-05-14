@@ -6,6 +6,7 @@
  */
 
 import express from 'express';
+import { decryptPassword } from '../services/crypto-manager.js';
 import { authenticateToken } from '../middleware/auth.js';
 import reactOrchestrator from '../services/react/orchestrator.js';
 import { db } from '../services/database-sqlite.js';
@@ -35,10 +36,10 @@ function getServerConfig(server, userId) {
       decrypted += decipher.final('utf8');
       config.password = decrypted;
     } else {
-      config.password = Buffer.from(server.encrypted_credentials, 'base64').toString();
+      config.password = decryptPassword(server.encrypted_credentials);
     }
   } catch {
-    config.password = Buffer.from(server.encrypted_credentials || '', 'base64').toString();
+    config.password = decryptPassword(server.encrypted_credentials || '');
   }
 
   return config;

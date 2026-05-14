@@ -11,30 +11,9 @@ import * as openaiProvider from '../services/openai-provider.js';
 import * as agentExecutor from '../services/agent-executor.js';
 import * as fileManager from '../services/file-manager.js';
 import { analyzeCode, getAvailableAnalyzers } from '../services/analyzers/index.js';
-import crypto from 'crypto';
+import { decryptPassword } from '../services/crypto-manager.js';
 
-// Fonction de déchiffrement universelle
-function decryptPassword(encryptedCredentials, secret = process.env.JWT_SECRET || 'default-secret') {
-    if (!encryptedCredentials) return '';
-    
-    if (encryptedCredentials.includes(':')) {
-        try {
-            const [ivHex, encryptedHex] = encryptedCredentials.split(':');
-            const iv = Buffer.from(ivHex, 'hex');
-            const key = crypto.scryptSync(secret, 'salt', 32);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            
-            let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-            decrypted += decipher.final('utf8');
-            return decrypted;
-        } catch (error) {
-            console.error('Erreur déchiffrement AES-256-CBC:', error.message);
-            return Buffer.from(encryptedCredentials, 'base64').toString();
-        }
-    } else {
-        return Buffer.from(encryptedCredentials, 'base64').toString();
-    }
-}
+// decryptPassword imported from crypto-manager.js
 
 const router = express.Router();
 
@@ -119,7 +98,7 @@ router.get('/analyzers', async (req, res) => {
 // ============================================
 // APPLIQUER L'AUTHENTIFICATION À TOUTES LES ROUTES SUIVANTES
 // ============================================
-// router.use(authenticateToken); // Temporairement désactivé pour l'Agent IA
+router.use(authenticateToken); // Authentification requise pour l'Agent IA
 
 // ============================================
 // GESTION DES CONVERSATIONS
@@ -490,7 +469,7 @@ router.post('/actions/:id/confirm', async (req, res) => {
         }
         
         // Décrypter les credentials
-        server.password = Buffer.from(server.encrypted_credentials, 'base64').toString();
+        server.password = decryptPassword(server.encrypted_credentials);
         
         // Exécuter l'action
         const actionData = JSON.parse(action.action_params);
@@ -643,7 +622,7 @@ router.post('/files/rollback/:id', async (req, res) => {
         }
         
         // Décrypter les credentials
-        modification.password = Buffer.from(modification.encrypted_credentials, 'base64').toString();
+        modification.password = decryptPassword(modification.encrypted_credentials);
         
         // Restaurer le fichier
         const result = await fileManager.restoreBackup(
@@ -710,7 +689,7 @@ router.post('/analyze', async (req, res) => {
         }
         
         // Décrypter les credentials
-        server.password = Buffer.from(server.encrypted_credentials, 'base64').toString();
+        server.password = decryptPassword(server.encrypted_credentials);
         
         // Exécuter l'analyse
         const result = await analyzeCode(server, path, { forceAnalyzer });
@@ -888,7 +867,7 @@ router.post('/agent/execute-plan', async (req, res) => {
             host: server.host,
             port: server.port || 22,
             username: server.username,
-            password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+            password: decryptPassword(server.encrypted_credentials)
         };
         
         // Exécuter le plan
@@ -943,7 +922,7 @@ router.post('/agent/analyze-infrastructure', async (req, res) => {
             host: server.host,
             port: server.port || 22,
             username: server.username,
-            password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+            password: decryptPassword(server.encrypted_credentials)
         };
         
         // Analyser l'infrastructure

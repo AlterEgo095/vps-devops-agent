@@ -6,6 +6,7 @@
  */
 
 import express from 'express';
+import { decryptPassword } from '../services/crypto-manager.js';
 import { authenticateToken } from '../middleware/auth.js';
 import checkpointManager from '../services/checkpoints/manager.js';
 import { db } from '../services/database-sqlite.js';
@@ -44,7 +45,7 @@ router.post('/:serverId/create', async (req, res) => {
       host: server.host,
       port: server.port || 22,
       username: server.username,
-      password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+      password: decryptPassword(server.encrypted_credentials)
     };
 
     const result = await checkpointManager.create(serverConfig, {
@@ -85,7 +86,7 @@ router.post('/:id/rollback', async (req, res) => {
       host: server.host,
       port: server.port || 22,
       username: server.username,
-      password: Buffer.from(server.encrypted_credentials, 'base64').toString()
+      password: decryptPassword(server.encrypted_credentials)
     };
 
     const result = await checkpointManager.rollback(parseInt(id), serverConfig, userId);

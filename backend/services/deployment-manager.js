@@ -11,7 +11,7 @@ import * as tar from 'tar';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = path.join(__dirname, '../../data/database.sqlite');
+const dbPath = path.join(__dirname, '../../data/devops-agent.db');
 
 class DeploymentManager {
   constructor() {

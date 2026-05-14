@@ -1,6 +1,9 @@
 /**
  * Routes API pour la gestion des serveurs
  * Utilisé par les interfaces frontend (agent-devops.html, terminal-ssh.html, etc.)
+ * 
+ * [BUGFIX] P2 — Utilise encrypted_credentials + crypto-manager
+ * au lieu de la colonne password qui n'existe pas dans le schéma DB.
  */
 
 import express from 'express';
@@ -8,6 +11,8 @@ import { db } from '../services/database-sqlite.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 import { createServerSchema, updateServerSchema, idParamSchema } from '../middleware/validation-schemas.js';
+import { encryptPassword, decryptPassword } from '../services/crypto-manager.js';
+import logger from '../config/logger.js';
 
 const router = express.Router();
 
@@ -15,11 +20,10 @@ const router = express.Router();
 router.use(authenticateToken);
 
 /**
- * GET /api/servers/list
- * Liste tous les serveurs de l'utilisateur
- * Format compatible avec le frontend existant
+ * GET /api/servers
+ * Liste tous les serveurs — route racine (utilisée par dashboard.html)
  */
-router.get('/list', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const userId = req.user.id;
         
@@ -27,6 +31,7 @@ router.get('/list', async (req, res) => {
             SELECT 
                 id, name, host, port, username, auth_type,
                 tags, description, status, last_check,
+                cpu_usage, memory_usage, uptime, disk_usage, os_info, ip_address,
                 created_at, updated_at
             FROM servers
             WHERE user_id = ?
@@ -39,7 +44,41 @@ router.get('/list', async (req, res) => {
             count: servers.length
         });
     } catch (error) {
-        console.error('Error fetching servers:', error);
+        logger.error('Error fetching servers:', { error: error.message });
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch servers',
+            servers: []
+        });
+    }
+});
+
+/**
+ * GET /api/servers/list
+ * Liste tous les serveurs de l'utilisateur (alias)
+ */
+router.get('/list', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const servers = db.prepare(`
+            SELECT 
+                id, name, host, port, username, auth_type,
+                tags, description, status, last_check,
+                cpu_usage, memory_usage, uptime, disk_usage, os_info, ip_address,
+                created_at, updated_at
+            FROM servers
+            WHERE user_id = ?
+            ORDER BY name
+        `).all(userId);
+        
+        res.json({
+            success: true,
+            servers: servers,
+            count: servers.length
+        });
+    } catch (error) {
+        logger.error('Error fetching servers:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to fetch servers',
@@ -61,6 +100,7 @@ router.get('/:id', validateParams(idParamSchema), async (req, res) => {
             SELECT 
                 id, name, host, port, username, auth_type,
                 tags, description, status, last_check,
+                cpu_usage, memory_usage, uptime, disk_usage, os_info, ip_address,
                 created_at, updated_at
             FROM servers
             WHERE id = ? AND user_id = ?
@@ -78,7 +118,7 @@ router.get('/:id', validateParams(idParamSchema), async (req, res) => {
             server: server
         });
     } catch (error) {
-        console.error('Error fetching server:', error);
+        logger.error('Error fetching server:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to fetch server'
@@ -89,42 +129,48 @@ router.get('/:id', validateParams(idParamSchema), async (req, res) => {
 /**
  * POST /api/servers
  * Crée un nouveau serveur
+ * [BUGFIX] Utilise encrypted_credentials + crypto-manager au lieu de password
  */
 router.post('/', validateBody(createServerSchema), async (req, res) => {
     try {
         const userId = req.user.id;
         const { name, host, port, username, password, auth_type, tags, description } = req.body;
         
-        const serverId = Date.now();
+        // [SECURITY] P1 — Chiffrement AES-256-CBC via crypto-manager
+        const encryptedCredentials = encryptPassword(password || '');
         
         const stmt = db.prepare(`
             INSERT INTO servers (
-                id, user_id, name, host, port, username, 
-                password, auth_type, tags, description, 
+                user_id, name, host, port, username, 
+                auth_type, encrypted_credentials, tags, description, 
                 status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
         `);
         
-        stmt.run(
-            serverId,
+        const result = stmt.run(
             userId,
             name,
             host,
             port || 22,
             username,
-            password || null,
             auth_type || 'password',
+            encryptedCredentials,
             tags || null,
             description || null
         );
         
+        const newServer = db.prepare(`
+            SELECT id, name, host, port, username, tags, status, created_at
+            FROM servers WHERE id = ?
+        `).get(result.lastInsertRowid);
+        
         res.json({
             success: true,
             message: 'Server created successfully',
-            serverId: serverId
+            server: newServer
         });
     } catch (error) {
-        console.error('Error creating server:', error);
+        logger.error('Error creating server:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to create server'
@@ -135,6 +181,7 @@ router.post('/', validateBody(createServerSchema), async (req, res) => {
 /**
  * PUT /api/servers/:id
  * Met à jour un serveur existant
+ * [BUGFIX] Utilise encrypted_credentials + crypto-manager au lieu de password
  */
 router.put('/:id', validateParams(idParamSchema), validateBody(updateServerSchema), async (req, res) => {
     try {
@@ -151,33 +198,45 @@ router.put('/:id', validateParams(idParamSchema), validateBody(updateServerSchem
             });
         }
         
-        const stmt = db.prepare(`
-            UPDATE servers 
-            SET name = ?, host = ?, port = ?, username = ?, 
-                password = ?, auth_type = ?, tags = ?, description = ?,
-                updated_at = datetime('now')
-            WHERE id = ? AND user_id = ?
-        `);
+        // Préparer les champs à mettre à jour
+        const updates = [];
+        const values = [];
         
-        stmt.run(
-            name,
-            host,
-            port || 22,
-            username,
-            password || null,
-            auth_type || 'password',
-            tags || null,
-            description || null,
-            serverId,
-            userId
-        );
+        if (name !== undefined) { updates.push('name = ?'); values.push(name); }
+        if (host !== undefined) { updates.push('host = ?'); values.push(host); }
+        if (port !== undefined) { updates.push('port = ?'); values.push(port); }
+        if (username !== undefined) { updates.push('username = ?'); values.push(username); }
+        if (auth_type !== undefined) { updates.push('auth_type = ?'); values.push(auth_type); }
+        if (tags !== undefined) { updates.push('tags = ?'); values.push(tags); }
+        if (description !== undefined) { updates.push('description = ?'); values.push(description); }
+        
+        // [SECURITY] P1 — Chiffrer le mot de passe avec AES-256-CBC
+        if (password) {
+            updates.push('encrypted_credentials = ?');
+            values.push(encryptPassword(password));
+        }
+        
+        updates.push("updated_at = datetime('now')");
+        values.push(serverId, userId);
+        
+        db.prepare(`
+            UPDATE servers 
+            SET ${updates.join(', ')}
+            WHERE id = ? AND user_id = ?
+        `).run(...values);
+        
+        const updatedServer = db.prepare(`
+            SELECT id, name, host, port, username, tags, status, updated_at
+            FROM servers WHERE id = ?
+        `).get(serverId);
         
         res.json({
             success: true,
-            message: 'Server updated successfully'
+            message: 'Server updated successfully',
+            server: updatedServer
         });
     } catch (error) {
-        console.error('Error updating server:', error);
+        logger.error('Error updating server:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to update server'
@@ -208,7 +267,7 @@ router.delete('/:id', validateParams(idParamSchema), async (req, res) => {
             message: 'Server deleted successfully'
         });
     } catch (error) {
-        console.error('Error deleting server:', error);
+        logger.error('Error deleting server:', { error: error.message });
         res.status(500).json({
             success: false,
             error: 'Failed to delete server'

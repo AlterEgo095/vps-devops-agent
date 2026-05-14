@@ -385,7 +385,7 @@
 
             try {
                 // Get current metrics (real API: /api/monitoring/metrics)
-                const currentResponse = await fetch(`${API_BASE}/monitoring/metrics`);
+                const currentResponse = await fetch(`${API_BASE}/monitoring/metrics`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') } });
                 const currentData = await currentResponse.json();
 
                 if (currentData.success && currentData.data) {
@@ -404,7 +404,7 @@
                 }
 
                 // Get historical data (real API: /api/monitoring/metrics/history?period=1h)
-                const historyResponse = await fetch(`${API_BASE}/monitoring/metrics/history?period=${currentTimeRange}&limit=100`);
+                const historyResponse = await fetch(`${API_BASE}/monitoring/metrics/history?period=${currentTimeRange}&limit=100`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('authToken') } });
                 const historyData = await historyResponse.json();
 
                 if (historyData.success && historyData.data) {

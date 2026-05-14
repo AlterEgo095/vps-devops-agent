@@ -1,19 +1,138 @@
 {
-  "name": "VPS DevOps Agent",
+  "name": "VPS DevOps Agent - Professional Infrastructure Management",
   "short_name": "DevOps Agent",
-  "description": "Professional DevOps Management Dashboard",
+  "description": "AI-powered DevOps platform for professional server management, monitoring, and automation with intelligent agent capabilities.",
   "start_url": "/dashboard.html",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#667eea",
-  "orientation": "any",
+  "dir": "ltr",
+  "lang": "fr",
+  "categories": ["productivity", "utilities", "developer", "business"],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "/assets/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/assets/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
-  "categories": ["productivity", "utilities", "developer"]
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Vue d'ensemble de l'infrastructure",
+      "url": "/dashboard.html",
+      "icons": [
+        {
+          "src": "/assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Terminal SSH",
+      "short_name": "Terminal",
+      "description": "Terminal SSH interactif",
+      "url": "/terminal-ssh.html",
+      "icons": [
+        {
+          "src": "/assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "AI Chat",
+      "short_name": "AI Chat",
+      "description": "Assistant IA DevOps",
+      "url": "/ai-agent-chat.html",
+      "icons": [
+        {
+          "src": "/assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Monitoring",
+      "short_name": "Monitor",
+      "description": "Surveillance système en temps réel",
+      "url": "/monitoring.html",
+      "icons": [
+        {
+          "src": "/assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "share_target": {
+    "action": "/dashboard.html",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 }

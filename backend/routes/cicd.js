@@ -2,7 +2,7 @@ import express from 'express';
 import webhookHandler from '../services/webhook-handler.js';
 import deploymentManager from '../services/deployment-manager.js';
 import pipelineRunner from '../services/pipeline-runner.js';
-import Database from 'better-sqlite3';
+// Using shared DB from database-sqlite.js
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -13,8 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const router = express.Router();
 
-const dbPath = path.join(__dirname, '../../data/database.sqlite');
-const db = new Database(dbPath);
+import { db } from '../services/database-sqlite.js';
 
 // ============================================================
 // [SECURITY] P1.4 — PROTECTION GLOBALE DES ROUTES CI/CD

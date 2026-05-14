@@ -106,4 +106,56 @@ router.get('/verify', (req, res) => {
   }
 });
 
+
+// ============================================================
+// Token validation endpoint
+// ============================================================
+router.get('/me', authenticateToken, (req, res) => {
+    res.json({
+        success: true,
+        user: {
+            id: req.user.id,
+            username: req.user.username,
+            role: req.user.role
+        }
+    });
+});
+
+// ============================================================
+// Token refresh endpoint
+// ============================================================
+router.post('/refresh', (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Token required' });
+    }
+    
+    try {
+        // Verify the existing token (even if expired, within grace period)
+        const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+        
+        // Check if token is within refresh grace period (7 days after expiry)
+        const tokenAge = Date.now() / 1000 - decoded.iat;
+        const maxAge = 7 * 24 * 3600; // 7 days
+        if (tokenAge > maxAge) {
+            return res.status(401).json({ error: 'Token too old to refresh' });
+        }
+        
+        // Generate new token
+        const newToken = generateToken({
+            id: decoded.id,
+            username: decoded.username,
+            role: decoded.role
+        });
+        
+        res.json({
+            success: true,
+            token: newToken
+        });
+    } catch (error) {
+        return res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
 export default router;
