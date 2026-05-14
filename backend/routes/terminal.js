@@ -56,6 +56,7 @@ export function initializeWebSocket(server) {
 
         let sessionId = null;
         let authenticated = false;
+        let currentUser = null;  // Store decoded user info from auth
 
         // Gérer les messages du client
         ws.on('message', async (message) => {
@@ -68,6 +69,7 @@ export function initializeWebSocket(server) {
                         // Vérifier le token JWT
                         const decoded = jwt.verify(data.token, JWT_SECRET);
                         authenticated = true;
+                        currentUser = decoded;  // Store for later use
                         
                         logger.info(`WebSocket authenticated for user: ${decoded.username}`);
                         
@@ -148,7 +150,7 @@ export function initializeWebSocket(server) {
                     
                     // AUTO-SAVE: Register server in DB after successful SSH connection
                     // Check after 3 seconds if session is still active (SSH connected)
-                    const _saveUserId = decoded.id || 'default';
+                    const _saveUserId = currentUser?.id || 'default';
                     const _saveConfig = { ...serverConfig };
                     setTimeout(() => {
                         const sessionInfo = sshTerminal.getSessionInfo(sessionId);
