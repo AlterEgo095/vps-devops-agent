@@ -3124,12 +3124,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Load dark mode preference
             loadDarkModePreference();
-            initializePhase1Enhancements();
-            initializePhase2Enhancements();
-            initializePhase3Enhancements();
-
-            // Setup global search
-            setupGlobalSearch();
+            
+            // Defer Phase 1-3 initialization until all script blocks are loaded
+            // (functions are defined in later <script> blocks)
+            setTimeout(() => {
+                if (typeof initializePhase1Enhancements === 'function') initializePhase1Enhancements();
+                if (typeof initializePhase2Enhancements === 'function') initializePhase2Enhancements();
+                if (typeof initializePhase3Enhancements === 'function') initializePhase3Enhancements();
+                if (typeof setupGlobalSearch === 'function') setupGlobalSearch();
+            }, 100);
 
             console.log('✅ Professional Dashboard initialized');
         });
@@ -3282,7 +3285,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // ===== DARK MODE =====
         window.toggleDarkMode = function() { enhancedToggleDarkMode(); }
-        }
 
         function loadDarkModePreference() {
             const darkMode = localStorage.getItem('darkMode');
