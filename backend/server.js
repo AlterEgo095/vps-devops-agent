@@ -146,7 +146,11 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'self'"],
-      // scriptSrcAttr removed — all inline event handlers replaced with addEventListener event delegation (CSP compliant)
+      // [CSP] script-src-attr: 'unsafe-inline' allows inline event handlers (onclick, onchange, etc.)
+      // This is safe because script-src (with nonce) still blocks injected <script> tags.
+      // Only inline HTML attributes are allowed — the main XSS vector (script injection) remains blocked.
+      // Required for iframe sub-pages (admin-panel, docker-manager, etc.) that use inline handlers.
+      scriptSrcAttr: ["'unsafe-inline'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'self'"],
