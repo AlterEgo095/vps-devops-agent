@@ -1,7 +1,9 @@
 import express from 'express';
 import rbacDB from '../../services/rbac-database.js';
+import { authenticateToken } from '../../middleware/auth.js';
 
 const router = express.Router();
+router.use(authenticateToken);
 
 // Middleware pour vérifier les permissions (sera amélioré plus tard)
 const requireAdmin = (req, res, next) => {

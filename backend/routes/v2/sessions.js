@@ -1,7 +1,9 @@
 import express from 'express';
 import rbacDB from '../../services/rbac-database.js';
+import { authenticateToken } from '../../middleware/auth.js';
 
 const router = express.Router();
+router.use(authenticateToken);
 
 const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') {

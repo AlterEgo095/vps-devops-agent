@@ -17,6 +17,14 @@ import { decryptPassword } from '../services/crypto-manager.js';
 
 const router = express.Router();
 
+// Helper: require authenticated user
+function requireUser(req, res, next) {
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    next();
+}
+
 // ============================================
 // ROUTES PUBLIQUES (sans authentification)
 // ============================================
@@ -110,7 +118,7 @@ router.use(authenticateToken); // Authentification requise pour l'Agent IA
  */
 router.get('/conversations', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { status = 'active', limit = 50 } = req.query;
         
         const conversations = db.prepare(`
@@ -145,7 +153,7 @@ router.get('/conversations', async (req, res) => {
  */
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750";
+        const userId = req.user.id;
         const conversationId = req.params.id;
         
         // Vérifier que la conversation appartient à l'utilisateur
@@ -185,7 +193,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
 
 router.get('/conversations/:id', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const conversationId = req.params.id;
         
         // Vérifier que la conversation appartient à l'utilisateur
@@ -245,7 +253,7 @@ router.get('/conversations/:id', async (req, res) => {
  */
 router.post('/conversations', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { serverId, context } = req.body;
         
         const conversation = aiAgent.createConversation(userId, serverId);
@@ -279,7 +287,7 @@ router.post('/conversations', async (req, res) => {
  */
 router.delete('/conversations/:id', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const conversationId = req.params.id;
         
         // Vérifier que la conversation appartient à l'utilisateur
@@ -325,7 +333,7 @@ router.delete('/conversations/:id', async (req, res) => {
  */
 router.post('/chat', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { conversationId, message, context } = req.body;
         
         if (!conversationId || !message) {
@@ -375,7 +383,7 @@ router.post('/chat', async (req, res) => {
  */
 router.get('/actions/pending', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         
         const pendingActions = db.prepare(`
             SELECT * FROM v_pending_confirmations
@@ -411,7 +419,7 @@ router.get('/actions/pending', async (req, res) => {
  */
 router.post('/actions/:id/confirm', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const actionId = req.params.id;
         const { confirmed } = req.body;
         
@@ -497,7 +505,7 @@ router.post('/actions/:id/confirm', async (req, res) => {
  */
 router.get('/actions/history', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { limit = 100, conversationId } = req.query;
         
         let query = `
@@ -555,7 +563,7 @@ router.get('/actions/history', async (req, res) => {
  */
 router.get('/files/modifications', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { limit = 50, serverId } = req.query;
         
         let query = `
@@ -602,7 +610,7 @@ router.get('/files/modifications', async (req, res) => {
  */
 router.post('/files/rollback/:id', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const modificationId = req.params.id;
         
         // Récupérer la modification
@@ -665,7 +673,7 @@ router.post('/files/rollback/:id', async (req, res) => {
  */
 router.post('/analyze', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { serverId, path, forceAnalyzer } = req.body;
         
         if (!serverId || !path) {
@@ -719,7 +727,7 @@ router.post('/analyze', async (req, res) => {
  */
 router.post('/agent/analyze-request', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { request, serverId, context } = req.body;
         
         if (!request) {
@@ -766,7 +774,7 @@ router.post('/agent/analyze-request', async (req, res) => {
  */
 router.post('/agent/execute-command', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { serverId, command } = req.body;
         
         if (!serverId || !command) {
@@ -840,7 +848,7 @@ router.post('/agent/execute-command', async (req, res) => {
  */
 router.post('/agent/execute-plan', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { serverId, plan } = req.body;
         
         if (!serverId || !plan || !plan.steps) {
@@ -895,7 +903,7 @@ router.post('/agent/execute-plan', async (req, res) => {
  */
 router.post('/agent/analyze-infrastructure', async (req, res) => {
     try {
-        const userId = req.user ? req.user.id : "user_admin_1763770766750"; // Utilise user_id=1 par défaut si non authentifié
+        const userId = req.user.id; // Utilise user_id=1 par défaut si non authentifié
         const { serverId } = req.body;
         
         if (!serverId) {

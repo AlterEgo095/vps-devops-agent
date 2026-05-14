@@ -94,6 +94,13 @@ import reactRouter from './routes/react.js';
 import ragRouter from './routes/rag.js';
 import serverMetricsRouter from './routes/server-metrics.js';
 
+// V2 Extended Routes
+import auditV2Router from './routes/v2/audit.js';
+import sessionsV2Router from './routes/v2/sessions.js';
+import usersV2Router from './routes/v2/users.js';
+// import swaggerV2Router from './routes/v2/swagger.js'; // Config file, not a router
+import capabilitiesV2Router from './routes/v2/capabilities.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -151,10 +158,20 @@ app.use(cors({
   origin: (origin, callback) => {
     // Autoriser les requêtes sans origin (curl, Postman, même serveur)
     if (!origin) return callback(null, true);
-    // En production, si ALLOWED_ORIGINS est vide, autoriser le même domaine
-    if (ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
+    // En production, ALLOWED_ORIGINS doit être configuré
+    if (ALLOWED_ORIGINS.length === 0) {
+      // Si non configuré en production, refuser les origines externes
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn('[CORS] Requête bloquée - ALLOWED_ORIGINS non configuré', { origin });
+        return callback(new Error('CORS non autorisé - configurez ALLOWED_ORIGINS'));
+      }
+      // En dev, tout autoriser
       return callback(null, true);
     }
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    logger.warn('[CORS] Origine non autorisée', { origin, allowed: ALLOWED_ORIGINS });
     callback(new Error('CORS non autorisé'));
   },
   credentials: true,
@@ -214,6 +231,13 @@ app.use('/api/approvals', approvalsRouter); // ✋ Approval Workflow API
 app.use('/api/ai/agent/react', reactRouter); // 🧠 ReAct Loop API
 app.use('/api/rag', ragRouter); // 🔍 RAG Knowledge Base API
 app.use('/api/server-metrics', serverMetricsRouter);
+
+// V2 Extended Routes
+app.use('/api/v2/audit', auditV2Router);
+app.use('/api/v2/sessions', sessionsV2Router);
+app.use('/api/v2/users', usersV2Router);
+// app.use('/api/v2/swagger', swaggerV2Router); // Swagger is config-only, not a route
+app.use('/api/v2/capabilities', capabilitiesV2Router);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -314,12 +338,14 @@ server.listen(PORT, '0.0.0.0', async () => {
             disk_usage = ?,
             last_check = datetime('now'),
             status = 'online'
-          
+            WHERE host = ? OR name = ?
         `).run(
           metrics.cpu?.usage || 0,
           metrics.memory?.percent || 0,
           Math.floor(os.uptime()),
-          metrics.disk?.percent || 0
+          metrics.disk?.percent || 0,
+          os.hostname(),
+          os.hostname()
         );
         // Note: This updates ALL servers which is incorrect.
         // Should update only matching local server. But keeping for now.

@@ -379,7 +379,7 @@ router.post('/refresh-all', async (req, res) => {
 /**
  * GET /api/server-metrics - List all servers with cached metrics
  */
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const userId = req.user.id;
         const servers = db.prepare(`
