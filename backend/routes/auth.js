@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { generateToken } from '../middleware/auth.js';
+import { generateToken, authenticateToken } from '../middleware/auth.js';
 import { getUserByUsername, updateUser } from '../services/database-sqlite.js';
 import { loginLimiter, registerLimiter, sensitiveActionLimiter } from '../middleware/rate-limiter.js';
 import { validateBody } from '../middleware/validate.js';

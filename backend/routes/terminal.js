@@ -162,14 +162,14 @@ export function initializeWebSocket(server) {
                                 if (existing) {
                                     const encCreds = encryptPassword(_saveConfig.password);
                                     db.prepare(
-                                        'UPDATE servers SET encrypted_credentials = ?, status = ?, last_check = datetime('now'), updated_at = datetime('now') WHERE id = ?'
+                                        `UPDATE servers SET encrypted_credentials = ?, status = ?, last_check = datetime('now'), updated_at = datetime('now') WHERE id = ?`
                                     ).run(encCreds, 'online', existing.id);
                                     logger.info(`[Terminal] Auto-updated server ${existing.id}`);
                                     try { ws.send(JSON.stringify({ type: 'server_saved', serverId: existing.id, action: 'updated' })); } catch(e) {}
                                 } else if (_saveConfig.password) {
                                     const encCreds = encryptPassword(_saveConfig.password);
                                     const result = db.prepare(
-                                        'INSERT INTO servers (user_id, name, host, port, username, auth_type, encrypted_credentials, description, status, last_check, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))'
+                                        `INSERT INTO servers (user_id, name, host, port, username, auth_type, encrypted_credentials, description, status, last_check, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`
                                     ).run(
                                         _saveUserId,
                                         _saveConfig.username + '@' + _saveConfig.host,
